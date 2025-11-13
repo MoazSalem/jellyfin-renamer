@@ -1,0 +1,624 @@
+import 'dart:io';
+import 'package:path/path.dart' as path;
+import 'package:renamer/metadata/models.dart';
+import 'package:renamer/core/undo.dart';
+import 'package:renamer/metadata/interactive.dart';
+import 'package:renamer/utils/logger.dart' as app_logger;
+import 'package:renamer/config/release_tags.dart';
+
+class RenameOperation {
+  final String sourcePath;
+  final String targetPath;
+
+  RenameOperation(this.sourcePath, this.targetPath);
+}
+
+class MediaRenamer {
+  final InteractivePrompt _interactive = InteractivePrompt();
+  final app_logger.AppLogger _logger;
+  String? _tvFolderName;
+  final List<RenameOperation> _plannedOperations = [];
+  final Map<String, UndoLogger> _loggers = {};
+
+  MediaRenamer({app_logger.AppLogger? logger})
+      : _logger = logger ?? app_logger.AppLogger();
+
+  Future<void> processItems(List<MediaItem> items, {bool dryRun = false, bool interactive = true}) async {
+    _plannedOperations.clear();
+
+    // Group items by type
+    final movies = <MediaItem>[];
+    final tvShowItems = <MediaItem>[];
+
+    for (final item in items) {
+      switch (item.type) {
+        case MediaType.movie:
+          movies.add(item);
+          break;
+        case MediaType.tvShow:
+          tvShowItems.add(item);
+          break;
+        case MediaType.unknown:
+          // Skip unknown types
+          break;
+      }
+    }
+
+    // Prompt for TV folder name if interactive and there are TV shows
+    if (interactive && tvShowItems.isNotEmpty && _tvFolderName == null) {
+      _tvFolderName = await _interactive.promptTvFolderName();
+    }
+
+    // Process movies individually (usually one per folder)
+    for (final movie in movies) {
+      await _processMovie(movie, dryRun: dryRun, interactive: interactive);
+    }
+
+    // Group TV show items by directory structure
+    if (tvShowItems.isNotEmpty) {
+      final groupedByDirectory = <String, List<MediaItem>>{};
+
+      for (final item in tvShowItems) {
+        // Group by the directory containing the episode files
+        final itemDir = path.dirname(item.path);
+        final itemDirName = path.basename(itemDir);
+
+        // If it's a season directory (S01, Season 1, etc.), group by parent directory
+        final isSeasonDir = itemDirName.toLowerCase().startsWith('season') ||
+                           RegExp(r'^s\d+$', caseSensitive: false).hasMatch(itemDirName);
+        final groupKey = isSeasonDir ? path.dirname(itemDir) : itemDir;
+
+        groupedByDirectory.putIfAbsent(groupKey, () => []).add(item);
+      }
+
+      // Process each directory group
+      for (final group in groupedByDirectory.values) {
+        await _processTvShowGroupFromItems(group, dryRun: dryRun, interactive: interactive);
+      }
+    }
+
+    // Show preview if dry run or interactive
+    if (dryRun || interactive) {
+      _showPreview(dryRun: dryRun, interactive: interactive);
+    }
+
+    // Execute operations if not dry run and confirmed
+    if (!dryRun) {
+      if (!interactive || await _interactive.confirmExecution()) {
+        await _executeOperations();
+      }
+    }
+  }
+
+  Future<void> processItem(MediaItem item, {bool dryRun = false, bool interactive = true}) async {
+    await processItems([item], dryRun: dryRun, interactive: interactive);
+  }
+
+  Future<void> _processMovie(MediaItem item, {bool dryRun = false, bool interactive = true}) async {
+    // For now, create a basic movie object from detected info
+    // In a full implementation, this would fetch from TMDB/IMDB
+    final movie = Movie(
+      title: item.detectedTitle ?? _extractTitleFromPath(item.path),
+      year: item.detectedYear,
+    );
+
+    if (interactive) {
+      // In interactive mode, prompt user to confirm/edit metadata
+      final confirmedMovie = await _interactive.promptMovieDetails([movie]);
+      if (confirmedMovie == null) return; // User cancelled
+    }
+
+    final targetDir = _getTargetDirectory(item.path, 'Movies');
+    _planRenameMovie(movie, item.path, targetDir);
+  }
+
+  Future<void> _processTvShowGroupFromItems(List<MediaItem> showItems, {String? showName, bool dryRun = false, bool interactive = true}) async {
+    if (showItems.isEmpty) return;
+
+    // Prioritize show name from parent directory
+    final itemDir = path.dirname(showItems.first.path);
+    final itemDirName = path.basename(itemDir);
+    final isSeasonDir = itemDirName.toLowerCase().startsWith('season') || RegExp(r'^s\d+$', caseSensitive: false).hasMatch(itemDirName);
+    final showDir = isSeasonDir ? path.dirname(itemDir) : itemDir;
+    final parsedDir = _parseShowNameFromText(path.basename(showDir));
+    final finalShowName = parsedDir.title.isNotEmpty ? parsedDir.title : (showName ?? _extractShowNameFromItem(showItems.first));
+    final finalYear = parsedDir.year ?? showItems.first.detectedYear;
+
+    // Extract all season/episode info from all files
+    final seasonsMap = <int, List<Episode>>{};
+    final fileEpisodeMap = <String, Episode>{};
+
+    for (final item in showItems) {
+      final episodeInfo = _extractEpisodeInfo(item.path);
+      if (episodeInfo != null) {
+        seasonsMap.putIfAbsent(episodeInfo.seasonNumber, () => []).add(episodeInfo);
+        fileEpisodeMap[item.path] = episodeInfo;
+      }
+    }
+
+    final seasons = seasonsMap.entries.map((e) => Season(number: e.key, episodes: e.value)).toList();
+
+    final show = TvShow(
+      title: finalShowName,
+      year: finalYear,
+      seasons: seasons,
+    );
+
+    if (interactive) {
+      final fullName = path.basename(showDir);
+      final confirmedShow = await _interactive.promptTvShowDetailsWithFiles(show, showItems, fullName: fullName);
+      if (confirmedShow == null) return;
+    }
+
+    final targetDir = _getTargetDirectory(showItems.first.path, 'TV Shows');
+    _planRenameTvShowGroup(show, fileEpisodeMap, targetDir);
+  }
+
+  Future<void> _processDirectoryGroup(String dirPath, List<MediaItem> dirItems, {bool dryRun = false, bool interactive = true}) async {
+    // Extract potential show names from directory structure
+    final showNameCandidates = _extractShowNameCandidates(dirPath, dirItems);
+
+    if (interactive) {
+      final selectedShow = await _interactive.promptShowSelectionWithFiles(showNameCandidates, dirItems);
+      if (selectedShow == null) return;
+
+      await _processTvShowGroup(dirItems, showName: selectedShow.title, year: selectedShow.year, dryRun: dryRun, interactive: false);
+    } else {
+      // In non-interactive mode, use the first/best candidate
+      final bestCandidate = showNameCandidates.first;
+      await _processTvShowGroup(dirItems, showName: bestCandidate.title, year: bestCandidate.year, dryRun: dryRun, interactive: false);
+    }
+  }
+
+  List<({String title, int? year})> _extractShowNameCandidates(String dirPath, List<MediaItem> dirItems) {
+    final candidates = <({String title, int? year})>{};
+
+    // Priority order: parent directory (most likely to be show name), then filename patterns, then current directory
+
+    // 1. Try parent directory name first (most likely to be the show name)
+    final parentDir = path.dirname(dirPath);
+    if (parentDir != dirPath && parentDir != '.') {
+      final parentDirName = path.basename(parentDir);
+      if (parentDirName.isNotEmpty) {
+        final parentCandidate = _parseShowNameFromText(parentDirName);
+        if (parentCandidate.title.isNotEmpty) {
+          candidates.add(parentCandidate);
+        }
+      }
+    }
+
+    // 1.5. Try grandparent directory
+    final grandparentDir = path.dirname(parentDir);
+    if (grandparentDir != parentDir && grandparentDir != '.' && grandparentDir != path.dirname(grandparentDir)) {
+      final grandparentDirName = path.basename(grandparentDir);
+      if (grandparentDirName.isNotEmpty && !_isGenericDirName(grandparentDirName)) {
+        final grandparentCandidate = _parseShowNameFromText(grandparentDirName);
+        if (grandparentCandidate.title.isNotEmpty && !candidates.contains(grandparentCandidate)) {
+          candidates.add(grandparentCandidate);
+        }
+      }
+    }
+
+    // 2. Add filename-based candidates (consistent patterns across files)
+    final fileNames = dirItems.map((item) => _extractShowNameFromItem(item)).where((name) => name.isNotEmpty).toList();
+    if (fileNames.isNotEmpty) {
+      final commonPrefix = _findLongestCommonPrefix(fileNames);
+      if (commonPrefix.isNotEmpty) {
+        final parsed = _parseShowNameFromText(commonPrefix);
+        if (parsed.title.isNotEmpty && !candidates.contains(parsed)) {
+          candidates.add(parsed);
+        }
+      }
+      // Also add individual if different
+      final fileNameSet = fileNames.toSet();
+      for (final fileName in fileNameSet) {
+        final parsed = _parseShowNameFromText(fileName);
+        if (parsed.title.isNotEmpty && !candidates.contains(parsed)) {
+          candidates.add(parsed);
+        }
+      }
+    }
+
+    // 3. Try current directory name (least likely, but still useful)
+    final dirName = path.basename(dirPath);
+    if (dirName != '.' && dirName.isNotEmpty) {
+      final dirCandidate = _parseShowNameFromText(dirName);
+      if (dirCandidate.title.isNotEmpty && !candidates.contains(dirCandidate)) {
+        candidates.add(dirCandidate);
+      }
+    }
+
+    // If no candidates found, fallback to any filename
+    if (candidates.isEmpty) {
+      for (final item in dirItems) {
+        final fileCandidate = _extractShowNameFromItem(item);
+        if (fileCandidate.isNotEmpty) {
+          final parsed = _parseShowNameFromText(fileCandidate);
+          if (parsed.title.isNotEmpty) {
+            candidates.add(parsed);
+            break; // Just need one fallback
+          }
+        }
+      }
+    }
+
+    return candidates.toList();
+  }
+
+  bool _isGenericDirName(String dirName) {
+    // Skip generic directory names that are unlikely to be show names
+    final lowerName = dirName.toLowerCase();
+    return lowerName.contains('season') ||
+            lowerName.contains('episode') ||
+            lowerName.startsWith('s') && RegExp(r'^s\d+$').hasMatch(lowerName) ||
+            lowerName == 'tv' ||
+            lowerName == 'shows' ||
+            lowerName == 'series';
+  }
+
+  String _findLongestCommonPrefix(List<String> strings) {
+    if (strings.isEmpty) return '';
+    if (strings.length == 1) return strings[0];
+
+    strings.sort();
+    final first = strings[0];
+    final last = strings[strings.length - 1];
+
+    var i = 0;
+    while (i < first.length && i < last.length && first[i] == last[i]) {
+      i++;
+    }
+
+    return first.substring(0, i);
+  }
+
+  ({String title, int? year}) _parseShowNameFromText(String text) {
+    // Clean up the text
+    var cleanText = text
+        .replaceAll('.', ' ')
+        .replaceAll('_', ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+
+    // Remove season information
+    cleanText = cleanText.replaceAll(RegExp(r'\bseason\s*\d+\b', caseSensitive: false), '').trim();
+    cleanText = cleanText.replaceAll(RegExp(r'\bs\d+\b', caseSensitive: false), '').trim();
+
+    // Remove common release info
+    for (final tag in releaseTags) {
+      cleanText = cleanText.replaceAll(RegExp(r'\b' + RegExp.escape(tag) + r'\b', caseSensitive: false), '').trim();
+    }
+    cleanText = cleanText.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+    // Clean up trailing separators (like " - ", " -", "- ")
+    cleanText = cleanText.replaceAll(RegExp(r'\s*-\s*$'), '').trim();
+    cleanText = cleanText.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+    // Try to extract year in parentheses (common in directory names)
+    final parenYearMatch = RegExp(r'\((\d{4})\)$').firstMatch(cleanText);
+    int? year;
+    if (parenYearMatch != null) {
+      year = int.tryParse(parenYearMatch.group(1)!);
+      cleanText = cleanText.replaceFirst(parenYearMatch.group(0)!, '').trim();
+    } else {
+      // Try to extract year without parentheses
+      final yearMatch = RegExp(r'\b(19|20)\d{2}\b').firstMatch(cleanText);
+      if (yearMatch != null) {
+        year = int.tryParse(yearMatch.group(0)!);
+        cleanText = cleanText.replaceFirst(yearMatch.group(0)!, '').trim();
+      }
+    }
+
+    return (title: cleanText, year: year);
+  }
+
+  String _extractShowNameFromItem(MediaItem item) {
+    final fileName = path.basenameWithoutExtension(item.path);
+    final episodeMatch = RegExp(r'S(\d{1,2})E(\d{1,2})', caseSensitive: false).firstMatch(fileName);
+    if (episodeMatch != null) {
+      var title = fileName.replaceFirst(episodeMatch.group(0)!, '').trim();
+      title = title.replaceAll('.', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+      return title;
+    }
+    return item.detectedTitle ?? '';
+  }
+
+  Future<void> _processTvShowGroup(List<MediaItem> showItems, {String? showName, int? year, bool dryRun = false, bool interactive = true}) async {
+    if (showItems.isEmpty) return;
+
+    // Use provided show name/year or extract from first item
+    final finalShowName = showName ?? _extractShowNameFromItem(showItems.first);
+    final finalYear = year ?? showItems.first.detectedYear;
+
+    // Extract all season/episode info from all files
+    final seasonsMap = <int, List<Episode>>{};
+    final fileEpisodeMap = <String, Episode>{};
+
+    for (final item in showItems) {
+      final episodeInfo = _extractEpisodeInfo(item.path);
+      if (episodeInfo != null) {
+        seasonsMap.putIfAbsent(episodeInfo.seasonNumber, () => []).add(episodeInfo);
+        fileEpisodeMap[item.path] = episodeInfo;
+      }
+    }
+
+    final seasons = seasonsMap.entries.map((e) => Season(number: e.key, episodes: e.value)).toList();
+
+    final show = TvShow(
+      title: finalShowName,
+      year: finalYear,
+      seasons: seasons,
+    );
+
+    if (interactive) {
+      final confirmedShow = await _interactive.promptTvShowDetailsWithFiles(show, showItems);
+      if (confirmedShow == null) return;
+    }
+
+    final targetDir = _getTargetDirectory(showItems.first.path, 'TV Shows');
+    _planRenameTvShowGroup(show, fileEpisodeMap, targetDir);
+  }
+
+  Future<void> _processTvShow(MediaItem item, {bool dryRun = false, bool interactive = true}) async {
+    await _processTvShowGroup([item], dryRun: dryRun, interactive: interactive);
+  }
+
+  void _planRenameMovie(Movie movie, String currentPath, String targetDir) {
+    final movieDir = path.join(targetDir, movie.jellyfinName);
+    final logPath = path.join(movieDir, 'rename_log.json');
+    _loggers.putIfAbsent(movieDir, () => UndoLogger(logPath, logger: _logger));
+
+    final fileName = '${movie.jellyfinName}${path.extension(currentPath)}';
+    final newPath = path.join(movieDir, fileName);
+
+    _plannedOperations.add(RenameOperation(currentPath, newPath));
+  }
+
+  Future<void> _renameMovie(Movie movie, String currentPath, String targetDir, {bool dryRun = false}) async {
+    final movieDir = path.join(targetDir, movie.jellyfinName);
+    final fileName = '${movie.jellyfinName}${path.extension(currentPath)}';
+    final newPath = path.join(movieDir, fileName);
+
+    if (dryRun) {
+      _logger.info('DRY RUN: Would create directory: $movieDir');
+      _logger.info('DRY RUN: Would move: $newPath');
+      return;
+    }
+
+    // Create directory if needed
+    await Directory(movieDir).create(recursive: true);
+
+    // Perform rename
+    await File(currentPath).rename(newPath);
+  }
+
+  void _planRenameTvShowGroup(TvShow show, Map<String, Episode> fileEpisodeMap, String targetDir) {
+    final showDir = path.join(targetDir, show.jellyfinName);
+    final logPath = path.join(showDir, 'rename_log.json');
+    _loggers.putIfAbsent(showDir, () => UndoLogger(logPath, logger: _logger));
+
+    for (final entry in fileEpisodeMap.entries) {
+      final currentPath = entry.key;
+      final episode = entry.value;
+
+      final seasonDir = path.join(showDir, 'Season ${episode.seasonNumber.toString().padLeft(2, '0')}');
+      final episodeName = '${show.jellyfinName} ${episode.episodeCode}${path.extension(currentPath)}';
+      final newPath = path.join(seasonDir, episodeName);
+
+      _plannedOperations.add(RenameOperation(currentPath, newPath));
+    }
+  }
+
+  Future<void> _renameTvShowGroup(TvShow show, Map<String, Episode> fileEpisodeMap, String targetDir, {bool dryRun = false}) async {
+    final showDir = path.join(targetDir, show.jellyfinName);
+
+    if (dryRun) {
+      _logger.info('DRY RUN: Would create directory: $showDir');
+      _logger.info('DRY RUN: Would organize ${fileEpisodeMap.length} episodes under: $showDir');
+      return;
+    }
+
+    await Directory(showDir).create(recursive: true);
+
+    for (final entry in fileEpisodeMap.entries) {
+      final currentPath = entry.key;
+      final episode = entry.value;
+
+      final seasonDir = path.join(showDir, 'Season ${episode.seasonNumber.toString().padLeft(2, '0')}');
+      final episodeName = '${show.jellyfinName} ${episode.episodeCode}${path.extension(currentPath)}';
+      final newPath = path.join(seasonDir, episodeName);
+
+      await Directory(seasonDir).create(recursive: true);
+      await File(currentPath).rename(newPath);
+    }
+  }
+
+  Future<void> _renameTvShow(TvShow show, String currentPath, String targetDir, {bool dryRun = false}) async {
+    final episode = _extractEpisodeInfo(currentPath);
+    if (episode == null) return;
+
+    final fileEpisodeMap = {currentPath: episode};
+    await _renameTvShowGroup(show, fileEpisodeMap, targetDir, dryRun: dryRun);
+  }
+
+  Future<void> _executeOperations() async {
+    // Group operations by directories to create them first
+    final directories = <String>{};
+
+    for (final op in _plannedOperations) {
+      final dir = path.dirname(op.targetPath);
+      directories.add(dir);
+    }
+
+    // Create all directories
+    for (final dir in directories) {
+      await Directory(dir).create(recursive: true);
+    }
+
+    // Execute renames
+    for (final op in _plannedOperations) {
+      final logger = _getLoggerForOperation(op);
+      if (logger != null) {
+        await logger.logRename(op.sourcePath, op.targetPath);
+      }
+      await File(op.sourcePath).rename(op.targetPath);
+    }
+
+    // Clean up empty source directories
+    final sourceDirs = <String>{};
+    for (final op in _plannedOperations) {
+      sourceDirs.add(path.dirname(op.sourcePath));
+    }
+
+    for (final dir in sourceDirs) {
+      if (await _isDirectoryEmpty(dir)) {
+        await Directory(dir).delete(recursive: true);
+        _logger.info('Deleted empty directory: $dir');
+      }
+    }
+  }
+
+  UndoLogger? _getLoggerForOperation(RenameOperation op) {
+    for (final entry in _loggers.entries) {
+      if (op.targetPath.startsWith(entry.key + path.separator) || op.targetPath.startsWith(entry.key + '/')) {
+        return entry.value;
+      }
+    }
+    return null;
+  }
+
+  Future<bool> _isDirectoryEmpty(String dirPath) async {
+    final dir = Directory(dirPath);
+    if (!await dir.exists()) return false;
+
+    try {
+      final list = dir.list(recursive: true, followLinks: false);
+      return await list.isEmpty;
+    } catch (e) {
+      // If can't list, assume not empty
+      return false;
+    }
+  }
+
+  void _showPreview({bool dryRun = false, bool interactive = true}) {
+    if (_plannedOperations.isEmpty) {
+      _logger.info('No operations planned.');
+      return;
+    }
+
+    _logger.info('\n📁 Preview of final structure:');
+    final tree = _buildTreeStructure();
+    _logger.info(tree);
+
+    if (dryRun) {
+      _logger.info('\nThis is a dry run. No files will be modified.');
+    }
+  }
+
+  String _buildTreeStructure() {
+    // Group operations by their root directory
+    final rootDirs = <String, dynamic>{};
+
+    for (final op in _plannedOperations) {
+      final parts = path.split(op.targetPath);
+      Map<String, dynamic> current = rootDirs;
+
+      for (var i = 0; i < parts.length; i++) {
+        final part = parts[i];
+        final isFile = i == parts.length - 1;
+
+        if (!current.containsKey(part)) {
+          current[part] = isFile ? null : <String, dynamic>{};
+        }
+
+        if (!isFile) {
+          current = current[part] as Map<String, dynamic>;
+        }
+      }
+    }
+
+    // Build the tree string
+    final buffer = StringBuffer();
+    _buildTreeString(rootDirs, buffer, '', '');
+    return buffer.toString();
+  }
+
+  void _buildTreeString(Map<String, dynamic> node, StringBuffer buffer, String prefix, String childPrefix) {
+    final entries = node.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
+
+    for (var i = 0; i < entries.length; i++) {
+      final entry = entries[i];
+      final isLast = i == entries.length - 1;
+      final connector = isLast ? '└── ' : '├── ';
+      final nextPrefix = isLast ? '    ' : '│   ';
+
+      buffer.writeln('$prefix$connector${entry.key}');
+
+      if (entry.value is Map<String, dynamic>) {
+        _buildTreeString(entry.value as Map<String, dynamic>, buffer, '$childPrefix$nextPrefix', '$childPrefix$nextPrefix');
+      }
+    }
+  }
+
+  String _getTargetDirectory(String sourcePath, String mediaType) {
+    // For now, create media type subdirectory in the same parent directory
+    // In a full implementation, this could be configurable
+    final parentDir = path.dirname(path.dirname(sourcePath));
+
+    // For TV shows, use the configured folder name or skip if empty
+    if (mediaType == 'TV Shows') {
+      final folderName = _tvFolderName ?? 'TV Shows';
+      if (folderName.isEmpty) {
+        return parentDir; // Skip the TV Shows folder
+      }
+      return path.join(parentDir, folderName);
+    }
+
+    return path.join(parentDir, mediaType);
+  }
+
+  String _extractTitleFromPath(String filePath) {
+    final fileName = path.basenameWithoutExtension(filePath);
+    // Remove common patterns and return the base name
+    return fileName.split(RegExp(r'[.\-\s]+'))[0];
+  }
+
+  Episode? _extractEpisodeInfo(String filePath) {
+    final fileName = path.basenameWithoutExtension(filePath);
+    final episodeMatch = RegExp(r'S(\d{1,2})E(\d{1,2})', caseSensitive: false).firstMatch(fileName);
+    if (episodeMatch != null) {
+      final seasonNum = int.parse(episodeMatch.group(1)!);
+      final episodeNum = int.parse(episodeMatch.group(2)!);
+      return Episode(seasonNumber: seasonNum, episodeNumber: episodeNum);
+    }
+    return null;
+  }
+
+  ({String title, int? year, List<Season> seasons}) _extractShowInfo(String filePath) {
+    final fileName = path.basenameWithoutExtension(filePath);
+
+    // Try to extract season and episode info
+    final episodeMatch = RegExp(r'S(\d{1,2})E(\d{1,2})', caseSensitive: false).firstMatch(fileName);
+    if (episodeMatch != null) {
+      final seasonNum = int.parse(episodeMatch.group(1)!);
+      final episodeNum = int.parse(episodeMatch.group(2)!);
+
+      // Remove episode code from filename to get title
+      var title = fileName.replaceFirst(episodeMatch.group(0)!, '').trim();
+
+      // Clean up the title (remove dots, extra spaces, etc.)
+      title = title
+          .replaceAll('.', ' ')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+
+      final episode = Episode(seasonNumber: seasonNum, episodeNumber: episodeNum);
+      final season = Season(number: seasonNum, episodes: [episode]);
+
+      return (title: title, year: null, seasons: [season]);
+    }
+
+    // Fallback
+    return (title: fileName, year: null, seasons: []);
+  }
+}

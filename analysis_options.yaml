@@ -1,0 +1,16 @@
+include: package:lints/recommended.yaml
+
+analyzer:
+  exclude:
+    - build/**
+    - test/.test_coverage.dart
+
+linter:
+  rules:
+    - prefer_const_constructors
+    - prefer_const_declarations
+    - unnecessary_brace_in_string_interps
+    - prefer_final_fields
+    - prefer_final_locals
+    - avoid_print
+    - prefer_single_quotes

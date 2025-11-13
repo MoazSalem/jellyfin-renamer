@@ -1,0 +1,35 @@
+# Build artifacts
+.dart_tool/
+build/
+*.exe
+*.exe.debug
+
+# Test coverage
+coverage/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Pub cache (optional, but recommended for clean repos)
+.pub-cache/
+
+# Testing playground (contains test media files)
+testing_playground/
+
+# Undo logs (generated during runtime)
+rename_log.json
