@@ -92,17 +92,31 @@ class UndoLogger {
         }
       }
 
-      // Clean up empty target directories
-      final targetDirs = <String>{};
+      // Clean up empty directories recursively
+      final processedDirs = <String>{};
       for (final log in logs) {
-        targetDirs.add(log.newPath);
+        var currentDir = Directory(log.newPath).parent;
+        // Walk up the directory tree and collect all directories that might become empty
+        while (currentDir.path != currentDir.parent.path) {
+          processedDirs.add(currentDir.path);
+          currentDir = currentDir.parent;
+        }
       }
 
-      for (final filePath in targetDirs) {
-        final dir = Directory(filePath).parent;
+      // Sort by depth (deepest first) to ensure we delete child directories before parents
+      final sortedDirs = processedDirs.toList()
+        ..sort((a, b) => b.split(Platform.pathSeparator).length.compareTo(a.split(Platform.pathSeparator).length));
+
+      for (final dirPath in sortedDirs) {
+        final dir = Directory(dirPath);
         if (await _isDirectoryEmpty(dir.path)) {
-          await dir.delete(recursive: true);
-          _logger.info('Deleted empty directory: ${dir.path}');
+          try {
+            await dir.delete(recursive: true);
+            _logger.info('Deleted empty directory: ${dir.path}');
+          } catch (e) {
+            // Ignore errors when deleting directories (might not be empty due to concurrent operations)
+            _logger.warning('Could not delete directory ${dir.path}: $e');
+          }
         }
       }
 
