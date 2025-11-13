@@ -408,9 +408,20 @@ class MediaRenamer {
   }
 
   void _planRenameTvShowGroup(TvShow show, Map<String, Episode> fileEpisodeMap, Map<String, List<String>> episodeSubtitleMap, String targetDir) {
-    // Check if the target directory already has the show name to avoid duplication
+    // Determine the show directory: prefer existing directories to avoid duplication
     final expectedShowDir = path.join(targetDir, show.jellyfinName);
-    final showDir = path.basename(targetDir) == show.jellyfinName ? targetDir : expectedShowDir;
+
+    String showDir;
+    if (Directory(expectedShowDir).existsSync()) {
+      // If the expected show directory already exists, use it
+      showDir = expectedShowDir;
+    } else if (path.basename(targetDir) == show.jellyfinName) {
+      // If targetDir is already named after the show, use it
+      showDir = targetDir;
+    } else {
+      // Otherwise, create the expected structure
+      showDir = expectedShowDir;
+    }
 
     final logPath = path.join(showDir, 'rename_log.json');
     _loggers.putIfAbsent(showDir, () => UndoLogger(logPath, logger: _logger));
@@ -437,7 +448,20 @@ class MediaRenamer {
   }
 
   Future<void> _renameTvShowGroup(TvShow show, Map<String, Episode> fileEpisodeMap, String targetDir, {bool dryRun = false}) async {
-    final showDir = path.join(targetDir, show.jellyfinName);
+    // Use the same logic as planning to avoid directory duplication
+    final expectedShowDir = path.join(targetDir, show.jellyfinName);
+
+    String showDir;
+    if (Directory(expectedShowDir).existsSync()) {
+      // If the expected show directory already exists, use it
+      showDir = expectedShowDir;
+    } else if (path.basename(targetDir) == show.jellyfinName) {
+      // If targetDir is already named after the show, use it
+      showDir = targetDir;
+    } else {
+      // Otherwise, create the expected structure
+      showDir = expectedShowDir;
+    }
 
     if (dryRun) {
       _logger.info('DRY RUN: Would create directory: $showDir');
