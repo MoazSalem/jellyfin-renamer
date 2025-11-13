@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as path;
 import 'package:renamer/metadata/models.dart';
+import 'package:renamer/utils/title_processor.dart';
 
 /// Handles interactive user prompts for media metadata input.
 class InteractivePrompt {
@@ -148,59 +149,118 @@ class InteractivePrompt {
       }
     }
 
+    // Automatically extract title using keyword method from filename
+    final fileName = path.basename(files.first.path);
+    final extractedResult = TitleProcessor.extractTitleUntilKeywords(fileName);
+    final extractedTitle = extractedResult.title;
+
+    // Also extract from directory name if available
+    String? dirExtractedTitle;
+    if (fullName != null) {
+      final dirExtractedResult = TitleProcessor.extractTitleUntilKeywords(
+        fullName,
+      );
+      dirExtractedTitle = dirExtractedResult.title;
+    }
+
     _stdout
       ..writeln('\nOptions:')
       ..writeln(
         '1. Use detected show name: "${detectedShow.jellyfinName}"',
       );
-    if (fullName != null && fullName != detectedShow.title) {
-      _stdout
-        ..writeln('2. Use full directory name: "$fullName"')
-        ..writeln('3. Enter different show name')
-        ..writeln('4. Skip these files')
-        ..write('Select option (1-4): ');
 
-      final input = _readLine().trim();
-      switch (input) {
-        case '1':
-          return detectedShow;
-        case '2':
-          return TvShow(
-            title: fullName,
-            year: detectedShow.year,
-            seasons: detectedShow.seasons,
-          );
-        case '3':
-          return _promptManualTvShowEntryWithEpisodes(
-            detectedShow.seasons,
-          );
-        case '4':
-          return null;
-        default:
-          _stdout.writeln('Invalid choice, skipping...');
-          return null;
-      }
-    } else {
-      _stdout
-        ..writeln('2. Enter different show name')
-        ..writeln('3. Skip these files')
-        ..write('Select option (1-3): ');
+    var optionCounter = 2;
 
-      final input = _readLine().trim();
-      switch (input) {
-        case '1':
-          return detectedShow;
-        case '2':
-          return _promptManualTvShowEntryWithEpisodes(
-            detectedShow.seasons,
-          );
-        case '3':
-          return null;
-        default:
-          _stdout.writeln('Invalid choice, skipping...');
-          return null;
-      }
+    if (extractedTitle != null && extractedTitle != detectedShow.title) {
+      _stdout.writeln(
+        '$optionCounter. Use extracted title from file: "$extractedTitle"',
+      );
+      optionCounter++;
     }
+
+    if (dirExtractedTitle != null &&
+        dirExtractedTitle != detectedShow.title &&
+        dirExtractedTitle != extractedTitle) {
+      _stdout.writeln(
+        '$optionCounter. Use extracted title'
+        ' from directory: "$dirExtractedTitle"',
+      );
+      optionCounter++;
+    }
+
+    if (fullName != null && fullName != detectedShow.title) {
+      _stdout.writeln('$optionCounter. Use full directory name: "$fullName"');
+      optionCounter++;
+    }
+
+    _stdout
+      ..writeln('$optionCounter. Enter different show name')
+      ..writeln('${optionCounter + 1}. Skip these files')
+      ..write('Select option (1-${optionCounter + 1}): ');
+
+    final input = _readLine().trim();
+    final choice = int.tryParse(input);
+
+    var currentOption = 2;
+
+    if (choice == 1) {
+      return detectedShow;
+    }
+
+    // Check extracted title from file
+    if (extractedTitle != null && extractedTitle != detectedShow.title) {
+      if (choice == currentOption) {
+        return TvShow(
+          title: extractedTitle,
+          year: extractedResult.year ?? detectedShow.year,
+          seasons: detectedShow.seasons,
+        );
+      }
+      currentOption++;
+    }
+
+    // Check extracted title from directory
+    if (dirExtractedTitle != null &&
+        dirExtractedTitle != detectedShow.title &&
+        dirExtractedTitle != extractedTitle) {
+      if (choice == currentOption) {
+        // Find the year from directory extraction
+        final dirResult = TitleProcessor.extractTitleUntilKeywords(fullName!);
+        return TvShow(
+          title: dirExtractedTitle,
+          year: dirResult.year ?? detectedShow.year,
+          seasons: detectedShow.seasons,
+        );
+      }
+      currentOption++;
+    }
+
+    // Check full directory name
+    if (fullName != null && fullName != detectedShow.title) {
+      if (choice == currentOption) {
+        return TvShow(
+          title: fullName,
+          year: detectedShow.year,
+          seasons: detectedShow.seasons,
+        );
+      }
+      currentOption++;
+    }
+
+    // Manual entry
+    if (choice == currentOption) {
+      return _promptManualTvShowEntryWithEpisodes(
+        detectedShow.seasons,
+      );
+    }
+
+    // Skip
+    if (choice == currentOption + 1) {
+      return null;
+    }
+
+    _stdout.writeln('Invalid choice, skipping...');
+    return null;
   }
 
   /// Prompts user to select from TV show suggestions.
@@ -375,6 +435,81 @@ class InteractivePrompt {
       return ''; // Skip the folder
     }
     return input;
+  }
+
+  /// Prompts user to choose a title extraction method when the detected title
+  /// doesn't look correct.
+  ///
+  /// [fileName] - The original filename to extract title from
+  /// [currentTitle] - The currently detected title
+  /// Returns the selected title and year, or null if user chooses to skip.
+  Future<({String? title, int? year})?> promptTitleExtraction(
+    String fileName,
+    String? currentTitle,
+  ) async {
+    _stdout
+      ..writeln('\n📝 Title Detection Options')
+      ..writeln('Filename: $fileName')
+      ..writeln('Current detected title: "${currentTitle ?? 'None'}"');
+
+    // Automatically extract title using keyword method
+    final extractedResult = TitleProcessor.extractTitleUntilKeywords(fileName);
+    final extractedTitle = extractedResult.title;
+
+    _stdout
+      ..writeln()
+      ..writeln('Choose title to use:')
+      ..writeln('1. Use current detected title');
+
+    if (extractedTitle != null && extractedTitle != currentTitle) {
+      _stdout.writeln('2. Use extracted title: "$extractedTitle"');
+    }
+
+    final manualOption =
+        extractedTitle != null && extractedTitle != currentTitle ? 3 : 2;
+    final skipOption = extractedTitle != null && extractedTitle != currentTitle
+        ? 4
+        : 3;
+
+    _stdout
+      ..writeln('$manualOption. Enter title manually')
+      ..writeln('$skipOption. Skip this file')
+      ..write('Select option (1-$skipOption): ');
+
+    final input = _readLine().trim();
+    final choice = int.tryParse(input);
+
+    if (choice == 1) {
+      // Extract year from current title if present
+      final yearMatch = RegExp(
+        r'\b(19|20)\d{2}\b',
+      ).firstMatch(currentTitle ?? '');
+      final year = yearMatch != null ? int.tryParse(yearMatch.group(0)!) : null;
+      return (title: currentTitle, year: year);
+    } else if (extractedTitle != null &&
+        extractedTitle != currentTitle &&
+        choice == 2) {
+      return extractedResult;
+    } else if (choice == manualOption) {
+      // Manual entry
+      _stdout.write('Enter title: ');
+      final title = _readLine().trim();
+      if (title.isEmpty) {
+        _stdout.writeln('Title cannot be empty.');
+        return null;
+      }
+
+      _stdout.write('Enter year (optional): ');
+      final yearInput = _readLine().trim();
+      final year = yearInput.isNotEmpty ? int.tryParse(yearInput) : null;
+
+      return (title: title, year: year);
+    } else if (choice == skipOption) {
+      return null; // Skip
+    } else {
+      _stdout.writeln('Invalid choice.');
+      return null;
+    }
   }
 
   /// Prompts user to confirm execution of the planned operations.

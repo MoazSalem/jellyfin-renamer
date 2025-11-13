@@ -83,4 +83,20 @@ const List<String> filenameFilterWords = [
   'limited',
   'series',
   'season',
+
+  // Additional terms from real filenames
+  'dd5.1',
+  'dd5 1',
+  'with',
+  'commentary',
+  'poiasd',
+  'galaxytv',
+  'Pahe.in',
+  'Pahe.li',
+  'ddp5.1',
+  'ddp5 1',
+  'ime',
+  '6ch',
+  'dl',
+  'brrip',
 ];

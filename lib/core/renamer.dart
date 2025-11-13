@@ -6,6 +6,7 @@ import 'package:renamer/core/undo.dart';
 import 'package:renamer/metadata/interactive.dart';
 import 'package:renamer/metadata/models.dart';
 import 'package:renamer/utils/logger.dart' as app_logger;
+import 'package:renamer/utils/title_processor.dart';
 
 /// Represents a single rename operation with source and target paths.
 class RenameOperation {
@@ -134,9 +135,28 @@ class MediaRenamer {
   }) async {
     // For now, create a basic movie object from detected info
     // In a full implementation, this would fetch from TMDB/IMDB
+    var movieTitle = item.detectedTitle ?? _extractTitleFromPath(item.path);
+    var movieYear = item.detectedYear;
+
+    // Check if title looks reasonable, prompt for better extraction if not
+    if (interactive && !TitleProcessor.isTitleReasonable(movieTitle)) {
+      final fileName = path.basenameWithoutExtension(item.path);
+      final extractionResult = await _interactive.promptTitleExtraction(
+        fileName,
+        movieTitle,
+      );
+      if (extractionResult == null) return; // User skipped
+      if (extractionResult.title != null) {
+        movieTitle = extractionResult.title!;
+      }
+      if (extractionResult.year != null) {
+        movieYear = extractionResult.year;
+      }
+    }
+
     final movie = Movie(
-      title: item.detectedTitle ?? _extractTitleFromPath(item.path),
-      year: item.detectedYear,
+      title: movieTitle,
+      year: movieYear,
     );
 
     var confirmedMovie = movie;
@@ -167,10 +187,26 @@ class MediaRenamer {
         RegExp(r'^s\d+$', caseSensitive: false).hasMatch(itemDirName);
     final showDir = isSeasonDir ? path.dirname(itemDir) : itemDir;
     final parsedDir = _parseShowNameFromText(path.basename(showDir));
-    final finalShowName = parsedDir.title.isNotEmpty
+    var finalShowName = parsedDir.title.isNotEmpty
         ? parsedDir.title
         : (showName ?? _extractShowNameFromItem(showItems.first));
-    final finalYear = parsedDir.year ?? showItems.first.detectedYear;
+    var finalYear = parsedDir.year ?? showItems.first.detectedYear;
+
+    // Check if show name looks reasonable, prompt for better extraction if not
+    if (interactive && !TitleProcessor.isTitleReasonable(finalShowName)) {
+      final fileName = path.basename(showItems.first.path);
+      final extractionResult = await _interactive.promptTitleExtraction(
+        fileName,
+        finalShowName,
+      );
+      if (extractionResult == null) return; // User skipped
+      if (extractionResult.title != null) {
+        finalShowName = extractionResult.title!;
+      }
+      if (extractionResult.year != null) {
+        finalYear = extractionResult.year;
+      }
+    }
 
     // Extract all season/episode info from all files
     final seasonsMap = <int, List<Episode>>{};

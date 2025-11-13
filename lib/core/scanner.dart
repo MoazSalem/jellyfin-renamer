@@ -3,10 +3,10 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:renamer/config/file_extensions.dart';
 import 'package:renamer/metadata/models.dart';
+import 'package:renamer/utils/title_processor.dart';
 
 /// Scanner for discovering media files and their associated subtitle files.
 class MediaScanner {
-
   /// Scans the specified directory recursively for media files.
   ///
   /// Returns a list of [MediaItem] objects containing detected media files
@@ -211,42 +211,7 @@ class MediaScanner {
   }
 
   ({String? title, int? year}) _extractTitleInfo(String fileName) {
-    // Remove common video file suffixes and quality indicators
-    var cleanName = fileName;
-
-    // Remove all known filter words
-    for (final word in filenameFilterWords) {
-      cleanName = cleanName.replaceAll(
-        RegExp(r'\b' + RegExp.escape(word) + r'\b', caseSensitive: false),
-        '',
-      );
-    }
-
-    // Remove brackets and parentheses content
-    cleanName = cleanName
-        .replaceAll(
-          RegExp(r'[\[(].*?[\])]'),
-          '',
-        )
-        .replaceAll(RegExp(r'\s+'), ' ') // Normalize spaces
-        .trim();
-
-    // Remove trailing dots
-    cleanName = cleanName.replaceAll(RegExp(r'\.+$'), '');
-
-    // Try to extract year
-    final yearMatch = RegExp(r'\b(19|20)\d{2}\b').firstMatch(cleanName);
-    int? year;
-    if (yearMatch != null) {
-      year = int.tryParse(yearMatch.group(0)!);
-      cleanName = cleanName
-          .replaceFirst(RegExp(r'\b' + yearMatch.group(0)! + r'\b'), '')
-          .trim();
-    }
-
-    // Clean up dots used as separators
-    cleanName = cleanName.replaceAll('.', ' ').trim();
-
-    return (title: cleanName.isNotEmpty ? cleanName : null, year: year);
+    // Use the comprehensive smart extraction method
+    return TitleProcessor.extractTitleUntilKeywords(fileName);
   }
 }
