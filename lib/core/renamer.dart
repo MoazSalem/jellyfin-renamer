@@ -142,7 +142,7 @@ class MediaRenamer {
 
     final seasons = seasonsMap.entries.map((e) => Season(number: e.key, episodes: e.value)).toList();
 
-    final show = TvShow(
+    var show = TvShow(
       title: finalShowName,
       year: finalYear,
       seasons: seasons,
@@ -152,6 +152,7 @@ class MediaRenamer {
       final fullName = path.basename(showDir);
       final confirmedShow = await _interactive.promptTvShowDetailsWithFiles(show, showItems, fullName: fullName);
       if (confirmedShow == null) return;
+      show = confirmedShow;
     }
 
     final targetDir = _getTargetDirectory(showItems.first.path, 'TV Shows');
