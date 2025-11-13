@@ -1,20 +1,22 @@
 import 'dart:io';
+
 import 'package:path/path.dart' as path;
-import 'package:renamer/config/subtitle_filters.dart';
+import 'package:renamer/config/file_extensions.dart';
 import 'package:renamer/metadata/models.dart';
-import 'package:renamer/core/detector.dart';
 
+/// Scanner for discovering media files and their associated subtitle files.
 class MediaScanner {
-  final List<String> _videoExtensions = ['.mkv', '.mp4', '.avi', '.mov', '.m4v', '.wmv'];
-  final List<String> _subtitleExtensions = ['.srt', '.sub', '.ass', '.ssa', '.vtt'];
-  final MediaDetector _detector = MediaDetector();
 
+  /// Scans the specified directory recursively for media files.
+  ///
+  /// Returns a list of [MediaItem] objects containing detected media files
+  /// and their associated subtitle files.
   Future<List<MediaItem>> scanDirectory(String rootPath) async {
     final videoFiles = <String>[];
     final subtitleFiles = <String>[];
     final rootDir = Directory(rootPath);
 
-    if (!await rootDir.exists()) {
+    if (!rootDir.existsSync()) {
       throw Exception('Directory does not exist: $rootPath');
     }
 
@@ -36,7 +38,10 @@ class MediaScanner {
       final mediaItem = await _analyzeFile(videoPath, rootPath);
       if (mediaItem != null) {
         // Find associated subtitle files
-        final associatedSubtitles = _findAssociatedSubtitles(videoPath, subtitleFiles);
+        final associatedSubtitles = _findAssociatedSubtitles(
+          videoPath,
+          subtitleFiles,
+        );
         final mediaItemWithSubtitles = MediaItem(
           path: mediaItem.path,
           type: mediaItem.type,
@@ -53,15 +58,18 @@ class MediaScanner {
 
   bool _isVideoFile(String filePath) {
     final extension = path.extension(filePath).toLowerCase();
-    return _videoExtensions.contains(extension);
+    return FileExtensions.video.contains(extension);
   }
 
   bool _isSubtitleFile(String filePath) {
     final extension = path.extension(filePath).toLowerCase();
-    return _subtitleExtensions.contains(extension);
+    return FileExtensions.subtitle.contains(extension);
   }
 
-  List<String> _findAssociatedSubtitles(String videoPath, List<String> subtitleFiles) {
+  List<String> _findAssociatedSubtitles(
+    String videoPath,
+    List<String> subtitleFiles,
+  ) {
     final videoDir = path.dirname(videoPath);
     final videoName = path.basenameWithoutExtension(videoPath);
     final associatedSubtitles = <String>[];
@@ -91,21 +99,34 @@ class MediaScanner {
     if (normalizedVideo == normalizedSubtitle) return true;
 
     // Episode code matching - check if both have the same episode code
-    final videoEpisodeMatch = RegExp(r'S(\d{1,2})E(\d{1,2})', caseSensitive: false).firstMatch(videoName);
-    final subtitleEpisodeMatch = RegExp(r'S(\d{1,2})E(\d{1,2})', caseSensitive: false).firstMatch(subtitleName);
+    final videoEpisodeMatch = RegExp(
+      r'S(\d{1,2})E(\d{1,2})',
+      caseSensitive: false,
+    ).firstMatch(videoName);
+    final subtitleEpisodeMatch = RegExp(
+      r'S(\d{1,2})E(\d{1,2})',
+      caseSensitive: false,
+    ).firstMatch(subtitleName);
 
     if (videoEpisodeMatch != null && subtitleEpisodeMatch != null) {
-      final videoEpisode = 'S${videoEpisodeMatch.group(1)}E${videoEpisodeMatch.group(2)}';
-      final subtitleEpisode = 'S${subtitleEpisodeMatch.group(1)}E${subtitleEpisodeMatch.group(2)}';
+      final videoEpisode =
+          'S${videoEpisodeMatch.group(1)}E${videoEpisodeMatch.group(2)}';
+      final subtitleEpisode =
+          'S${subtitleEpisodeMatch.group(1)}E${subtitleEpisodeMatch.group(2)}';
       if (videoEpisode == subtitleEpisode) return true;
     }
 
-    // Check if they have the same episode code even if one doesn't have it extracted
+    // Check if they have the same episode code
+    // even if one doesn't have it extracted
     if (videoEpisodeMatch != null || subtitleEpisodeMatch != null) {
       final episodeCode = videoEpisodeMatch != null
           ? 'S${videoEpisodeMatch.group(1)}E${videoEpisodeMatch.group(2)}'
-          : 'S${subtitleEpisodeMatch!.group(1)}E${subtitleEpisodeMatch.group(2)}';
-      if (videoName.contains(episodeCode) && subtitleName.contains(episodeCode)) return true;
+          : 'S${subtitleEpisodeMatch!.group(1)}'
+                'E${subtitleEpisodeMatch.group(2)}';
+      if (videoName.contains(episodeCode) &&
+          subtitleName.contains(episodeCode)) {
+        return true;
+      }
     }
 
     // Common words matching - check if they share significant words
@@ -117,7 +138,10 @@ class MediaScanner {
     if (commonWords.length >= 2) return true;
 
     // One name contains a significant portion of the other
-    if (normalizedSubtitle.contains(normalizedVideo) || normalizedVideo.contains(normalizedSubtitle)) return true;
+    if (normalizedSubtitle.contains(normalizedVideo) ||
+        normalizedVideo.contains(normalizedSubtitle)) {
+      return true;
+    }
 
     return false;
   }
@@ -125,8 +149,11 @@ class MediaScanner {
   String _normalizeForSubtitleMatching(String name) {
     // Remove common quality indicators and extra info
     var normalized = name;
-    for (final indicator in qualityIndicators) {
-      normalized = normalized.replaceAll(RegExp(r'\b' + RegExp.escape(indicator) + r'\b', caseSensitive: false), '');
+    for (final indicator in filenameFilterWords) {
+      normalized = normalized.replaceAll(
+        RegExp(r'\b' + RegExp.escape(indicator) + r'\b', caseSensitive: false),
+        '',
+      );
     }
     return normalized
         .replaceAll(RegExp(r'\([^)]*\)'), '') // Remove parentheses content
@@ -138,10 +165,11 @@ class MediaScanner {
     // Extract words that are likely to be meaningful for matching
     final words = text.split(RegExp(r'\s+'));
     return words.where((word) {
-      // Keep words that are not just numbers, single chars, or common quality terms
+      // Keep words that are not just numbers,
+      // single chars, or common quality terms
       return word.length > 2 &&
-             !RegExp(r'^\d+$').hasMatch(word) &&
-             !subtitleFilterWords.contains(word.toLowerCase());
+          !RegExp(r'^\d+$').hasMatch(word) &&
+          !filenameFilterWords.contains(word.toLowerCase());
     }).toSet();
   }
 
@@ -161,7 +189,7 @@ class MediaScanner {
         detectedTitle: titleInfo.title,
         detectedYear: titleInfo.year,
       );
-    } catch (e) {
+    } on Exception catch (_) {
       // Skip files that can't be analyzed
       return null;
     }
@@ -184,9 +212,22 @@ class MediaScanner {
 
   ({String? title, int? year}) _extractTitleInfo(String fileName) {
     // Remove common video file suffixes and quality indicators
-    var cleanName = fileName
-        .replaceAll(RegExp(r'\.(1080p|720p|4k|bluray|web-dl|hdr|hevc|x264).*', caseSensitive: false), '')
-        .replaceAll(RegExp(r'[\[\(].*?[\]\)]'), '') // Remove brackets and parentheses content
+    var cleanName = fileName;
+
+    // Remove all known filter words
+    for (final word in filenameFilterWords) {
+      cleanName = cleanName.replaceAll(
+        RegExp(r'\b' + RegExp.escape(word) + r'\b', caseSensitive: false),
+        '',
+      );
+    }
+
+    // Remove brackets and parentheses content
+    cleanName = cleanName
+        .replaceAll(
+          RegExp(r'[\[(].*?[\])]'),
+          '',
+        )
         .replaceAll(RegExp(r'\s+'), ' ') // Normalize spaces
         .trim();
 
@@ -198,7 +239,9 @@ class MediaScanner {
     int? year;
     if (yearMatch != null) {
       year = int.tryParse(yearMatch.group(0)!);
-      cleanName = cleanName.replaceFirst(RegExp(r'\b' + yearMatch.group(0)! + r'\b'), '').trim();
+      cleanName = cleanName
+          .replaceFirst(RegExp(r'\b' + yearMatch.group(0)! + r'\b'), '')
+          .trim();
     }
 
     // Clean up dots used as separators

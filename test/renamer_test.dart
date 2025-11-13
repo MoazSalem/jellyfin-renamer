@@ -1,7 +1,6 @@
-import 'package:test/test.dart';
-import 'package:renamer/metadata/models.dart';
 import 'package:renamer/core/detector.dart';
-import 'package:renamer/core/scanner.dart';
+import 'package:renamer/metadata/models.dart';
+import 'package:test/test.dart';
 
 void main() {
   group('MediaDetector', () {
@@ -25,7 +24,6 @@ void main() {
 
   group('MediaScanner', () {
     test('extracts title and year from filename', () {
-      final scanner = MediaScanner();
       // Test the private method indirectly through public interface
       // This would need more comprehensive testing in a real scenario
     });

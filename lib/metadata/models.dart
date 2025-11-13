@@ -2,15 +2,27 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'models.g.dart';
 
-enum MediaType { movie, tvShow, unknown }
+/// Enumeration of supported media types.
+enum MediaType {
+  /// Movie media type
+  movie,
 
+  /// TV show media type
+  tvShow,
+
+  /// Unknown or unsupported media type
+  unknown,
+}
+
+/// Represents a media file with its metadata and associated subtitle files.
 class MediaItem {
-  final String path;
-  final MediaType type;
-  final String? detectedTitle;
-  final int? detectedYear;
-  final List<String> subtitlePaths;
-
+  /// Creates a new media item.
+  ///
+  /// [path] - File system path to the media file
+  /// [type] - Type of media
+  /// [detectedTitle] - Optional title detected from filename
+  /// [detectedYear] - Optional year detected from filename
+  /// [subtitlePaths] - Optional list of associated subtitle file paths
   MediaItem({
     required this.path,
     required this.type,
@@ -18,15 +30,32 @@ class MediaItem {
     this.detectedYear,
     List<String>? subtitlePaths,
   }) : subtitlePaths = subtitlePaths ?? [];
+
+  /// The file system path to the media file.
+  final String path;
+
+  /// The type of media (movie, TV show, or unknown).
+  final MediaType type;
+
+  /// The title detected from the filename, if any.
+  final String? detectedTitle;
+
+  /// The year detected from the filename, if any.
+  final int? detectedYear;
+
+  /// List of paths to subtitle files associated with this media file.
+  final List<String> subtitlePaths;
 }
 
+/// Represents a movie with its metadata.
 @JsonSerializable()
 class Movie {
-  final String title;
-  final int? year;
-  final String? imdbId;
-  final String? tmdbId;
-
+  /// Creates a new movie instance.
+  ///
+  /// [title] - The movie title
+  /// [year] - Optional release year
+  /// [imdbId] - Optional IMDB identifier
+  /// [tmdbId] - Optional TMDB identifier
   Movie({
     required this.title,
     this.year,
@@ -34,84 +63,169 @@ class Movie {
     this.tmdbId,
   });
 
+  /// Creates a Movie instance from a JSON map.
   factory Movie.fromJson(Map<String, dynamic> json) => _$MovieFromJson(json);
+
+  /// The title of the movie.
+  final String title;
+
+  /// The release year of the movie, if known.
+  final int? year;
+
+  /// The IMDB ID of the movie, if available.
+  final String? imdbId;
+
+  /// The TMDB ID of the movie, if available.
+  final String? tmdbId;
+
+  /// Converts this movie to a JSON map.
   Map<String, dynamic> toJson() => _$MovieToJson(this);
 
+  /// Returns the Jellyfin-compatible name for this movie.
   String get jellyfinName {
-    final baseName = title.replaceAll(RegExp(r'[<>:"|?*]'), '').replaceAll('/', '-');
+    final baseName = title
+        .replaceAll(RegExp('[<>:"|?*]'), '')
+        .replaceAll('/', '-');
     return year != null ? '$baseName ($year)' : baseName;
   }
 }
 
+/// Represents a TV show with its metadata and seasons.
 @JsonSerializable()
 class TvShow {
-  final String title;
-  final int? year;
-  final String? tvdbId;
-  final String? tmdbId;
-  final List<Season> seasons;
-
+  /// Creates a new TV show instance.
+  ///
+  /// [title] - The TV show title
+  /// [year] - Optional release year
+  /// [tvdbId] - Optional TVDB identifier
+  /// [tmdbId] - Optional TMDB identifier
+  /// [seasons] - List of seasons in the show
   TvShow({
     required this.title,
+    required this.seasons,
     this.year,
     this.tvdbId,
     this.tmdbId,
-    required this.seasons,
   });
 
+  /// Creates a TvShow instance from a JSON map.
   factory TvShow.fromJson(Map<String, dynamic> json) => _$TvShowFromJson(json);
+
+  /// The title of the TV show.
+  final String title;
+
+  /// The release year of the TV show, if known.
+  final int? year;
+
+  /// The TVDB ID of the TV show, if available.
+  final String? tvdbId;
+
+  /// The TMDB ID of the TV show, if available.
+  final String? tmdbId;
+
+  /// List of seasons in this TV show.
+  final List<Season> seasons;
+
+  /// Converts this TV show to a JSON map.
   Map<String, dynamic> toJson() => _$TvShowToJson(this);
 
+  /// Returns the Jellyfin-compatible name for this TV show.
   String get jellyfinName {
-    final baseName = title.replaceAll(RegExp(r'[<>:"|?*]'), '').replaceAll('/', '-');
+    final baseName = title
+        .replaceAll(RegExp('[<>:"|?*]'), '')
+        .replaceAll('/', '-');
     return year != null ? '$baseName ($year)' : baseName;
   }
 }
 
+/// Represents a season of a TV show.
 @JsonSerializable()
 class Season {
-  final int number;
-  final List<Episode> episodes;
-
+  /// Creates a new season instance.
+  ///
+  /// [number] - The season number
+  /// [episodes] - List of episodes in this season
   Season({
     required this.number,
     required this.episodes,
   });
 
+  /// Creates a Season instance from a JSON map.
   factory Season.fromJson(Map<String, dynamic> json) => _$SeasonFromJson(json);
+
+  /// The season number.
+  final int number;
+
+  /// List of episodes in this season.
+  final List<Episode> episodes;
+
+  /// Converts this season to a JSON map.
   Map<String, dynamic> toJson() => _$SeasonToJson(this);
 }
 
+/// Represents an episode of a TV show.
 @JsonSerializable()
 class Episode {
-  final int seasonNumber;
-  final int episodeNumber;
-  final String? title;
-
+  /// Creates a new episode instance.
+  ///
+  /// [seasonNumber] - The season number
+  /// [episodeNumber] - The episode number within the season
+  /// [title] - Optional episode title
   Episode({
     required this.seasonNumber,
     required this.episodeNumber,
     this.title,
   });
 
-  factory Episode.fromJson(Map<String, dynamic> json) => _$EpisodeFromJson(json);
+  /// Creates an Episode instance from a JSON map.
+  factory Episode.fromJson(Map<String, dynamic> json) =>
+      _$EpisodeFromJson(json);
+
+  /// The season number this episode belongs to.
+  final int seasonNumber;
+
+  /// The episode number within the season.
+  final int episodeNumber;
+
+  /// The title of the episode, if known.
+  final String? title;
+
+  /// Converts this episode to a JSON map.
   Map<String, dynamic> toJson() => _$EpisodeToJson(this);
 
-  String get episodeCode => 'S${seasonNumber.toString().padLeft(2, '0')}E${episodeNumber.toString().padLeft(2, '0')}';
+  /// Returns the episode code in SxxExx format (e.g., "S01E05").
+  String get episodeCode =>
+      'S${seasonNumber.toString().padLeft(2, '0')}'
+      'E${episodeNumber.toString().padLeft(2, '0')}';
 }
 
+/// Represents a rename operation with timestamp for undo functionality.
 @JsonSerializable()
 class RenameOperation {
-  final String originalPath;
-  final String newPath;
-  final DateTime timestamp;
-
+  /// Creates a new rename operation.
+  ///
+  /// [originalPath] - The original file path
+  /// [newPath] - The new file path
+  /// [timestamp] - When the operation occurred
   RenameOperation({
     required this.originalPath,
     required this.newPath,
     required this.timestamp,
   });
 
-  factory RenameOperation.fromJson(Map<String, dynamic> json) => _$RenameOperationFromJson(json);
+  /// Creates a RenameOperation instance from a JSON map.
+  factory RenameOperation.fromJson(Map<String, dynamic> json) =>
+      _$RenameOperationFromJson(json);
+
+  /// The original file path before renaming.
+  final String originalPath;
+
+  /// The new file path after renaming.
+  final String newPath;
+
+  /// The timestamp when the rename operation occurred.
+  final DateTime timestamp;
+
+  /// Converts this rename operation to a JSON map.
   Map<String, dynamic> toJson() => _$RenameOperationToJson(this);
 }
