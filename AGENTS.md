@@ -22,3 +22,6 @@
 - For media file operations, always preserve original paths in undo logs before renaming
 - Use JSON for configuration and logging data structures
 - Handle filesystem encoding properly for cross-platform compatibility
+- Support subtitle files (.srt, .sub, .ass, .ssa, .vtt) alongside video files
+- Use directory-based grouping for TV show episodes instead of filename prefix matching
+- Ensure undo operations handle both video and subtitle files with proper error recovery

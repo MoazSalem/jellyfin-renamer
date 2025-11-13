@@ -5,11 +5,12 @@ A command-line tool for renaming media libraries to comply with [Jellyfin's offi
 ## Features
 
 - **Automatic Detection**: Scans directories and automatically detects whether files are movies or TV episodes
-- **Smart Grouping**: Groups multiple episodes from the same TV show for efficient processing
+- **Smart Grouping**: Groups multiple episodes from the same TV show for efficient processing using directory-based organization
 - **Directory-Aware**: Intelligently extracts show names from folder names, parent directories, and filename patterns
+- **Subtitle Support**: Automatically detects and renames subtitle files (.srt, .sub, .ass, .ssa, .vtt) alongside video files
 - **Jellyfin Compliance**: Renames files and creates proper folder structures following Jellyfin standards
 - **Dry Run Mode**: Preview changes before applying them
-- **Undo System**: Complete undo capability with JSON logging of all operations
+- **Enhanced Undo System**: Complete undo capability with human-readable logs, proper error handling, and automatic cleanup
 - **Interactive Mode**: Intelligent prompts showing detected metadata, file information, and prioritized naming options
 - **Cross-Platform**: Works on Windows, Linux, and macOS
 
@@ -43,6 +44,16 @@ Scan a directory for media files and detect their types:
 
 ```bash
 renamer scan --path /path/to/media
+```
+
+The scan command shows detailed information including associated subtitle files:
+
+```
+INFO: Found 1 media items:
+INFO:   MediaType.movie: path/to/Inception.2010.mkv
+INFO:     Subtitles: 2
+INFO:       path/to/Inception.2010.srt
+INFO:       path/to/Inception.2010.English.srt
 ```
 
 ### Rename Files (Dry Run)
@@ -108,14 +119,16 @@ Movies are organized as:
 ```
 /Movies/
 └── Movie Name (Year)/
-    └── Movie Name (Year).mkv
+    ├── Movie Name (Year).mkv
+    └── Movie Name (Year).default.srt
 ```
 
 Example:
 ```
 /Movies/
 └── Inception (2010)/
-    └── Inception (2010).mkv
+    ├── Inception (2010).mkv
+    └── Inception (2010).default.srt
 ```
 
 ### TV Shows
@@ -125,7 +138,8 @@ TV shows are organized as:
 /TV Shows/
 └── Show Name (Year)/
     └── Season 01/
-        └── Show Name (Year) S01E01 Episode Title.mkv
+        ├── Show Name (Year) S01E01 Episode Title.mkv
+        └── Show Name (Year) S01E01.default.srt
 ```
 
 Example:
@@ -133,7 +147,8 @@ Example:
 /TV Shows/
 └── Breaking Bad (2008)/
     └── Season 01/
-        └── Breaking Bad (2008) S01E01 Pilot.mkv
+        ├── Breaking Bad (2008) S01E01 Pilot.mkv
+        └── Breaking Bad (2008) S01E01.default.srt
 ```
 
 ## Command Line Options
@@ -164,11 +179,28 @@ The tool automatically detects media types based on filename patterns:
 
 - **TV Shows**: Files containing `S01E01`, `S02E05`, etc.
 - **Movies**: Files containing years (e.g., `2010`, `2023`)
+- **Subtitles**: Files with extensions `.srt`, `.sub`, `.ass`, `.ssa`, `.vtt`
 - **Unknown**: Files that don't match these patterns
+
+### Subtitle Association
+
+Subtitle files are automatically associated with video files using intelligent matching:
+
+- **Exact match**: `Movie.mkv` → `Movie.srt`
+- **Episode code match**: `Show.S01E01.mkv` → `S01E01.srt`
+- **Close name match**: `Movie.mkv` → `Movie.English.srt`
+- **Directory-based**: Subtitles in the same folder as videos are associated
 
 ## Undo System
 
-All rename operations are logged to `rename_log.json` with timestamps. The undo command reads this log and reverses all operations in reverse chronological order.
+All rename operations (including subtitles) are logged to `rename_log.json` with timestamps. The undo command reads this log and reverses all operations in reverse chronological order.
+
+### Enhanced Undo Features
+
+- **Human-readable logs**: The log file includes both human-readable operation summaries and machine-readable JSON
+- **Smart error handling**: Only deletes the log file after complete success; preserves logs for partial failures
+- **Automatic cleanup**: Removes empty directories created during renaming
+- **Progress tracking**: Shows detailed progress during undo operations
 
 **Important**: Always run in dry-run mode first to verify changes before applying them.
 
@@ -211,9 +243,10 @@ renamer rename --path ./test --dry-run --verbose
 ## Safety Features
 
 - **Dry-run mode** prevents accidental changes
-- **Undo logging** tracks all operations for reversal
+- **Undo logging** tracks all operations (videos and subtitles) for reversal
 - **File validation** ensures paths exist before processing
 - **Error handling** gracefully handles permission issues and missing files
+- **Smart cleanup** removes empty directories after undo operations
 - **Cross-platform paths** work correctly on Windows, Linux, and macOS
 
 ## Development

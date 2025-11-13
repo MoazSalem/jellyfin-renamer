@@ -8,29 +8,28 @@ renamer/
 │   └── main.dart              # CLI entry point
 ├── lib/
 │   ├── cli/
-│   │   ├── args.dart          # Command-line argument parsing
 │   │   └── commands.dart      # Command handlers (scan, rename, undo)
 │   ├── core/
-│   │   ├── scanner.dart       # Directory scanning and file detection
+│   │   ├── scanner.dart       # Directory scanning, file detection, and subtitle association
 │   │   ├── detector.dart      # Media type detection (movie/show)
-│   │   ├── renamer.dart       # File/folder renaming logic
-│   │   └── undo.dart          # Undo system with JSON logging
+│   │   ├── renamer.dart       # File/folder renaming logic with subtitle support
+│   │   └── undo.dart          # Enhanced undo system with human-readable logs
 │   ├── metadata/
-│   │   ├── fetcher.dart       # External metadata API integration
-│   │   ├── models.dart        # Data models for movies/shows/episodes
+│   │   ├── models.dart        # Data models for movies/shows/episodes with subtitle paths
 │   │   └── interactive.dart   # CLI prompts for user confirmation
-│   ├── utils/
-│   │   ├── filesystem.dart    # Cross-platform file operations
-│   │   ├── validation.dart    # Path and name validation
-│   │   └── logger.dart        # Structured logging
-│   └── config.dart            # Configuration management
+│   ├── config/
+│   │   └── release_tags.dart  # Release tag filtering configuration
+│   └── utils/
+│       └── logger.dart        # Structured logging
 ├── test/
-│   ├── scanner_test.dart
-│   ├── renamer_test.dart
-│   └── undo_test.dart
+│   └── renamer_test.dart      # Unit tests
 ├── pubspec.yaml
 ├── analysis_options.yaml
-└── README.md
+├── AGENTS.md                  # Development guidelines
+├── DESIGN.md                  # Design specifications
+├── IMPLEMENTATION.md          # Implementation details
+├── README.md                  # User documentation
+└── .gitignore                 # Git ignore rules
 ```
 
 ## Core Components Implementation
@@ -80,17 +79,39 @@ class RenameArgs {
 
 ```dart
 class MediaScanner {
-  final List<String> _videoExtensions = ['.mkv', '.mp4', '.avi', '.mov'];
+  final List<String> _videoExtensions = ['.mkv', '.mp4', '.avi', '.mov', '.m4v', '.wmv'];
+  final List<String> _subtitleExtensions = ['.srt', '.sub', '.ass', '.ssa', '.vtt'];
 
   Future<List<MediaItem>> scanDirectory(String rootPath) async {
-    final items = <MediaItem>[];
+    final videoFiles = <String>[];
+    final subtitleFiles = <String>[];
 
+    // Collect all video and subtitle files
     await for (final entity in Directory(rootPath).list(recursive: true)) {
-      if (entity is File && _isVideoFile(entity.path)) {
-        final mediaItem = await _analyzeFile(entity.path);
-        if (mediaItem != null) {
-          items.add(mediaItem);
+      if (entity is File) {
+        final filePath = entity.path;
+        if (_isVideoFile(filePath)) {
+          videoFiles.add(filePath);
+        } else if (_isSubtitleFile(filePath)) {
+          subtitleFiles.add(filePath);
         }
+      }
+    }
+
+    // Process video files and associate subtitles
+    final items = <MediaItem>[];
+    for (final videoPath in videoFiles) {
+      final mediaItem = await _analyzeFile(videoPath, rootPath);
+      if (mediaItem != null) {
+        final associatedSubtitles = _findAssociatedSubtitles(videoPath, subtitleFiles);
+        final mediaItemWithSubtitles = MediaItem(
+          path: mediaItem.path,
+          type: mediaItem.type,
+          detectedTitle: mediaItem.detectedTitle,
+          detectedYear: mediaItem.detectedYear,
+          subtitlePaths: associatedSubtitles,
+        );
+        items.add(mediaItemWithSubtitles);
       }
     }
 
@@ -99,6 +120,17 @@ class MediaScanner {
 
   bool _isVideoFile(String path) =>
       _videoExtensions.contains(extension(path).toLowerCase());
+
+  bool _isSubtitleFile(String path) =>
+      _subtitleExtensions.contains(extension(path).toLowerCase());
+
+  List<String> _findAssociatedSubtitles(String videoPath, List<String> subtitleFiles) {
+    // Intelligent subtitle association logic
+    // - Exact filename match
+    // - Episode code match
+    // - Close name match
+    // - Directory-based association
+  }
 }
 ```
 
@@ -133,6 +165,24 @@ class MediaDetector {
 ### 5. Metadata Models (`lib/metadata/models.dart`)
 
 ```dart
+enum MediaType { movie, tvShow, unknown }
+
+class MediaItem {
+  final String path;
+  final MediaType type;
+  final String? detectedTitle;
+  final int? detectedYear;
+  final List<String> subtitlePaths;
+
+  MediaItem({
+    required this.path,
+    required this.type,
+    this.detectedTitle,
+    this.detectedYear,
+    List<String>? subtitlePaths,
+  }) : subtitlePaths = subtitlePaths ?? [];
+}
+
 class Movie {
   final String title;
   final int? year;
@@ -164,6 +214,9 @@ class TvShow {
     this.tmdbId,
     required this.seasons,
   });
+
+  String get jellyfinName =>
+      year != null ? '$title ($year)' : title;
 }
 
 class Season {
@@ -183,6 +236,9 @@ class Episode {
     required this.episodeNumber,
     this.title,
   });
+
+  String get episodeCode =>
+      'S${seasonNumber.toString().padLeft(2, '0')}E${episodeNumber.toString().padLeft(2, '0')}';
 }
 ```
 
@@ -235,55 +291,150 @@ class MediaRenamer {
 }
 ```
 
-### 7. Undo System (`lib/core/undo.dart`)
+### 7. Enhanced Undo System (`lib/core/undo.dart`)
 
 ```dart
 class UndoLogger {
   final String logPath;
+  final app_logger.AppLogger _logger;
 
-  UndoLogger(this.logPath);
+  UndoLogger(this.logPath, {app_logger.AppLogger? logger})
+      : _logger = logger ?? app_logger.AppLogger();
 
   Future<void> logRename(String originalPath, String newPath) async {
-    final logEntry = {
-      'original_path': originalPath,
-      'new_path': newPath,
-      'timestamp': DateTime.now().toIso8601String(),
-    };
+    final logEntry = RenameOperation(
+      originalPath: originalPath,
+      newPath: newPath,
+      timestamp: DateTime.now(),
+    );
 
     final logFile = File(logPath);
     final existingLogs = await _readExistingLogs(logFile);
-
     existingLogs.add(logEntry);
-    await logFile.writeAsString(jsonEncode(existingLogs));
+
+    // Write human-readable header and entries, followed by JSON data
+    final buffer = StringBuffer();
+
+    // Header with instructions
+    buffer.writeln('# Jellyfin Media Renamer - Undo Log');
+    buffer.writeln('# Generated on: ${DateTime.now().toIso8601String()}');
+    buffer.writeln('# To undo: renamer undo --log "$logPath"');
+    buffer.writeln();
+
+    // Human-readable entries (most recent first)
+    final sortedLogs = List<RenameOperation>.from(existingLogs)
+      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+    for (final log in sortedLogs) {
+      buffer.writeln(log.timestamp.toIso8601String());
+      buffer.writeln('  FROM: ${log.originalPath}');
+      buffer.writeln('  TO:   ${log.newPath}');
+      buffer.writeln();
+    }
+
+    // Separator and JSON data
+    buffer.writeln('# ==========================================');
+    buffer.writeln('# JSON data for machine processing');
+    buffer.writeln('# ==========================================');
+    const encoder = JsonEncoder.withIndent('  ');
+    buffer.writeln(encoder.convert(existingLogs.map((e) => e.toJson()).toList()));
+
+    await logFile.writeAsString(buffer.toString());
   }
 
   Future<void> undo() async {
     final logFile = File(logPath);
     if (!await logFile.exists()) {
-      throw Exception('No undo log found');
+      throw Exception('No undo log found at: $logPath');
     }
 
     final logs = await _readExistingLogs(logFile);
-    logs.sort((a, b) => b['timestamp'].compareTo(a['timestamp'])); // Reverse chronological
+    logs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-    for (final log in logs) {
-      final originalPath = log['original_path'];
-      final newPath = log['new_path'];
+    var successCount = 0;
+    var totalOperations = logs.length;
 
-      if (await File(newPath).exists()) {
-        await Directory(dirname(originalPath)).create(recursive: true);
-        await File(newPath).rename(originalPath);
+    try {
+      for (final log in logs) {
+        if (await File(log.newPath).exists()) {
+          await Directory(path.dirname(log.originalPath)).create(recursive: true);
+          await File(log.newPath).rename(log.originalPath);
+          successCount++;
+          _logger.info('Undid: ${log.newPath} -> ${log.originalPath}');
+        } else {
+          _logger.warning('File no longer exists: ${log.newPath}');
+          totalOperations--; // Don't count as failure
+        }
       }
-    }
 
-    await logFile.delete();
+      // Clean up empty directories
+      final targetDirs = <String>{};
+      for (final log in logs) {
+        targetDirs.add(log.newPath);
+      }
+
+      for (final filePath in targetDirs) {
+        final dir = Directory(path.dirname(filePath)).parent;
+        if (await _isDirectoryEmpty(dir.path)) {
+          await dir.delete(recursive: true);
+          _logger.info('Deleted empty directory: ${dir.path}');
+        }
+      }
+
+      // Only delete log on complete success
+      if (successCount == totalOperations) {
+        await logFile.delete();
+        _logger.info('Undo completed successfully.');
+      } else {
+        _logger.warning('Undo partially completed ($successCount/$totalOperations). Log preserved.');
+      }
+    } catch (e) {
+      _logger.error('Undo failed: $e');
+      _logger.warning('Log file preserved for retry.');
+      rethrow;
+    }
   }
 
-  Future<List<Map<String, dynamic>>> _readExistingLogs(File logFile) async {
+  Future<List<RenameOperation>> _readExistingLogs(File logFile) async {
     if (!await logFile.exists()) return [];
 
-    final content = await logFile.readAsString();
-    return List<Map<String, dynamic>>.from(jsonDecode(content));
+    try {
+      final content = await logFile.readAsString();
+      final lines = content.split('\n');
+
+      // Find JSON section
+      final jsonStartIndex = lines.indexWhere((line) => line.contains('# JSON data'));
+      if (jsonStartIndex == -1) {
+        // Fallback for old format
+        final jsonList = jsonDecode(content) as List<dynamic>;
+        return jsonList.map((json) => RenameOperation.fromJson(json)).toList();
+      }
+
+      // Skip comment lines to find JSON
+      var jsonContentStart = jsonStartIndex + 1;
+      while (jsonContentStart < lines.length && lines[jsonContentStart].trim().startsWith('#')) {
+        jsonContentStart++;
+      }
+
+      final jsonContent = lines.sublist(jsonContentStart).join('\n').trim();
+      final jsonList = jsonDecode(jsonContent) as List<dynamic>;
+      return jsonList.map((json) => RenameOperation.fromJson(json)).toList();
+    } catch (e) {
+      _logger.warning('Could not read undo log: $e');
+      return [];
+    }
+  }
+
+  Future<bool> _isDirectoryEmpty(String dirPath) async {
+    final dir = Directory(dirPath);
+    if (!await dir.exists()) return false;
+
+    try {
+      final list = dir.list(recursive: true, followLinks: false);
+      return await list.isEmpty;
+    } catch (e) {
+      return false;
+    }
   }
 }
 ```
@@ -334,35 +485,38 @@ class InteractivePrompt {
 
 ## Implementation Phases
 
-### Phase 1: Core Infrastructure
-1. Set up Dart project with dependencies (`args`, `path`, `http`, `json_serializable`)
-2. Implement CLI argument parsing
-3. Create basic directory scanning
-4. Set up logging and configuration management
+### ✅ Phase 1: Core Infrastructure (Completed)
+1. ✅ Set up Dart project with dependencies (`args`, `path`, `json_serializable`)
+2. ✅ Implement CLI argument parsing and commands
+3. ✅ Create directory scanning with video and subtitle detection
+4. ✅ Set up logging and configuration management
 
-### Phase 2: Media Detection and Analysis
-1. Implement media type detection (movie vs TV show)
-2. Add file pattern recognition for episodes/seasons
-3. Create data models for movies, shows, episodes
-4. Implement basic filename sanitization
+### ✅ Phase 2: Media Detection and Analysis (Completed)
+1. ✅ Implement media type detection (movie vs TV show)
+2. ✅ Add file pattern recognition for episodes/seasons
+3. ✅ Create data models for movies, shows, episodes with subtitle support
+4. ✅ Implement intelligent subtitle association algorithms
+5. ✅ Implement basic filename sanitization
 
-### Phase 3: Renaming Engine
-1. Build the core renaming logic for movies
-2. Implement TV show season/episode structure creation
-3. Add undo logging before any file operations
-4. Handle edge cases (multi-part files, duplicates, etc.)
+### ✅ Phase 3: Renaming Engine (Completed)
+1. ✅ Build the core renaming logic for movies with subtitle support
+2. ✅ Implement TV show season/episode structure creation with subtitles
+3. ✅ Add enhanced undo logging with human-readable format
+4. ✅ Handle edge cases (multi-part files, duplicates, etc.)
+5. ✅ Directory-based TV show episode grouping
 
-### Phase 4: Metadata Integration
-1. Add external API integration (TMDB, TVDB)
-2. Implement interactive CLI prompts
-3. Add fuzzy matching for title suggestions
-4. Support manual metadata entry
+### 🔄 Phase 4: Metadata Integration (In Progress)
+1. 🔄 Add external API integration (TMDB, TVDB) - Basic structure ready
+2. ✅ Implement interactive CLI prompts with subtitle awareness
+3. 🔄 Add fuzzy matching for title suggestions
+4. ✅ Support manual metadata entry
 
-### Phase 5: Advanced Features
-1. Implement undo functionality
-2. Add dry-run mode with preview
-3. Create configuration file support
-4. Add progress indicators and error reporting
+### ✅ Phase 5: Advanced Features (Completed)
+1. ✅ Implement comprehensive undo functionality with error recovery
+2. ✅ Add dry-run mode with detailed preview
+3. ✅ Create configuration file support (release tags)
+4. ✅ Add progress indicators and error reporting
+5. ✅ Cross-platform compatibility (Windows/Linux/macOS)
 
 ## Testing Strategy
 
