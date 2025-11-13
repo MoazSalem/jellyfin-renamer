@@ -407,7 +407,10 @@ class MediaRenamer {
   }
 
   void _planRenameTvShowGroup(TvShow show, Map<String, Episode> fileEpisodeMap, Map<String, List<String>> episodeSubtitleMap, String targetDir) {
-    final showDir = path.join(targetDir, show.jellyfinName);
+    // Check if the target directory already has the show name to avoid duplication
+    final expectedShowDir = path.join(targetDir, show.jellyfinName);
+    final showDir = path.basename(targetDir) == show.jellyfinName ? targetDir : expectedShowDir;
+
     final logPath = path.join(showDir, 'rename_log.json');
     _loggers.putIfAbsent(showDir, () => UndoLogger(logPath, logger: _logger));
 
