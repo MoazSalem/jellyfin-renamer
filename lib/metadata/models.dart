@@ -9,13 +9,15 @@ class MediaItem {
   final MediaType type;
   final String? detectedTitle;
   final int? detectedYear;
+  final List<String> subtitlePaths;
 
   MediaItem({
     required this.path,
     required this.type,
     this.detectedTitle,
     this.detectedYear,
-  });
+    List<String>? subtitlePaths,
+  }) : subtitlePaths = subtitlePaths ?? [];
 }
 
 @JsonSerializable()

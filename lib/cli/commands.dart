@@ -34,6 +34,12 @@ class ScanCommand extends Command {
       logger.info('Found ${items.length} media items:');
       for (final item in items) {
         logger.info('  ${item.type}: ${item.path}');
+        if (item.subtitlePaths.isNotEmpty) {
+          logger.info('    Subtitles: ${item.subtitlePaths.length}');
+          for (final subtitlePath in item.subtitlePaths) {
+            logger.info('      ${subtitlePath}');
+          }
+        }
       }
     } catch (e) {
       logger.error('Scan failed: $e');

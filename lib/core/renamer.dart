@@ -102,14 +102,16 @@ class MediaRenamer {
       year: item.detectedYear,
     );
 
+    var confirmedMovie = movie;
     if (interactive) {
       // In interactive mode, prompt user to confirm/edit metadata
-      final confirmedMovie = await _interactive.promptMovieDetails([movie]);
-      if (confirmedMovie == null) return; // User cancelled
+      final promptedMovie = await _interactive.promptMovieDetails([movie]);
+      if (promptedMovie == null) return; // User cancelled
+      confirmedMovie = promptedMovie;
     }
 
     final targetDir = _getTargetDirectory(item.path, 'Movies');
-    _planRenameMovie(movie, item.path, targetDir);
+    _planRenameMovie(confirmedMovie, item.path, targetDir, item.subtitlePaths);
   }
 
   Future<void> _processTvShowGroupFromItems(List<MediaItem> showItems, {String? showName, bool dryRun = false, bool interactive = true}) async {
@@ -127,12 +129,14 @@ class MediaRenamer {
     // Extract all season/episode info from all files
     final seasonsMap = <int, List<Episode>>{};
     final fileEpisodeMap = <String, Episode>{};
+    final episodeSubtitleMap = <String, List<String>>{}; // video path -> subtitle paths
 
     for (final item in showItems) {
       final episodeInfo = _extractEpisodeInfo(item.path);
       if (episodeInfo != null) {
         seasonsMap.putIfAbsent(episodeInfo.seasonNumber, () => []).add(episodeInfo);
         fileEpisodeMap[item.path] = episodeInfo;
+        episodeSubtitleMap[item.path] = item.subtitlePaths;
       }
     }
 
@@ -151,7 +155,7 @@ class MediaRenamer {
     }
 
     final targetDir = _getTargetDirectory(showItems.first.path, 'TV Shows');
-    _planRenameTvShowGroup(show, fileEpisodeMap, targetDir);
+    _planRenameTvShowGroup(show, fileEpisodeMap, episodeSubtitleMap, targetDir);
   }
 
   Future<void> _processDirectoryGroup(String dirPath, List<MediaItem> dirItems, {bool dryRun = false, bool interactive = true}) async {
@@ -333,12 +337,14 @@ class MediaRenamer {
     // Extract all season/episode info from all files
     final seasonsMap = <int, List<Episode>>{};
     final fileEpisodeMap = <String, Episode>{};
+    final episodeSubtitleMap = <String, List<String>>{}; // video path -> subtitle paths
 
     for (final item in showItems) {
       final episodeInfo = _extractEpisodeInfo(item.path);
       if (episodeInfo != null) {
         seasonsMap.putIfAbsent(episodeInfo.seasonNumber, () => []).add(episodeInfo);
         fileEpisodeMap[item.path] = episodeInfo;
+        episodeSubtitleMap[item.path] = item.subtitlePaths;
       }
     }
 
@@ -356,22 +362,30 @@ class MediaRenamer {
     }
 
     final targetDir = _getTargetDirectory(showItems.first.path, 'TV Shows');
-    _planRenameTvShowGroup(show, fileEpisodeMap, targetDir);
+    _planRenameTvShowGroup(show, fileEpisodeMap, episodeSubtitleMap, targetDir);
   }
 
   Future<void> _processTvShow(MediaItem item, {bool dryRun = false, bool interactive = true}) async {
     await _processTvShowGroup([item], dryRun: dryRun, interactive: interactive);
   }
 
-  void _planRenameMovie(Movie movie, String currentPath, String targetDir) {
+  void _planRenameMovie(Movie movie, String currentPath, String targetDir, List<String> subtitlePaths) {
     final movieDir = path.join(targetDir, movie.jellyfinName);
     final logPath = path.join(movieDir, 'rename_log.json');
     _loggers.putIfAbsent(movieDir, () => UndoLogger(logPath, logger: _logger));
 
+    // Plan video file rename
     final fileName = '${movie.jellyfinName}${path.extension(currentPath)}';
     final newPath = path.join(movieDir, fileName);
-
     _plannedOperations.add(RenameOperation(currentPath, newPath));
+
+    // Plan subtitle file renames
+    for (final subtitlePath in subtitlePaths) {
+      final subtitleExtension = path.extension(subtitlePath);
+      final subtitleFileName = '${movie.jellyfinName}.default${subtitleExtension}';
+      final newSubtitlePath = path.join(movieDir, subtitleFileName);
+      _plannedOperations.add(RenameOperation(subtitlePath, newSubtitlePath));
+    }
   }
 
   Future<void> _renameMovie(Movie movie, String currentPath, String targetDir, {bool dryRun = false}) async {
@@ -392,7 +406,7 @@ class MediaRenamer {
     await File(currentPath).rename(newPath);
   }
 
-  void _planRenameTvShowGroup(TvShow show, Map<String, Episode> fileEpisodeMap, String targetDir) {
+  void _planRenameTvShowGroup(TvShow show, Map<String, Episode> fileEpisodeMap, Map<String, List<String>> episodeSubtitleMap, String targetDir) {
     final showDir = path.join(targetDir, show.jellyfinName);
     final logPath = path.join(showDir, 'rename_log.json');
     _loggers.putIfAbsent(showDir, () => UndoLogger(logPath, logger: _logger));
@@ -406,6 +420,15 @@ class MediaRenamer {
       final newPath = path.join(seasonDir, episodeName);
 
       _plannedOperations.add(RenameOperation(currentPath, newPath));
+
+      // Plan subtitle renames for this episode
+      final subtitles = episodeSubtitleMap[currentPath] ?? [];
+      for (final subtitlePath in subtitles) {
+        final subtitleExtension = path.extension(subtitlePath);
+        final subtitleFileName = '${show.jellyfinName} ${episode.episodeCode}.default${subtitleExtension}';
+        final newSubtitlePath = path.join(seasonDir, subtitleFileName);
+        _plannedOperations.add(RenameOperation(subtitlePath, newSubtitlePath));
+      }
     }
   }
 
