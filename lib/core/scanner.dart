@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:path/path.dart' as path;
+import 'package:renamer/config/subtitle_filters.dart';
 import 'package:renamer/metadata/models.dart';
 import 'package:renamer/core/detector.dart';
 
@@ -82,25 +83,66 @@ class MediaScanner {
   }
 
   bool _isSubtitleForVideo(String videoName, String subtitleName) {
-    // Exact match (e.g., "Episode.S01E01.mkv" -> "Episode.S01E01.srt")
-    if (videoName == subtitleName) return true;
+    // Normalize both names for comparison
+    final normalizedVideo = _normalizeForSubtitleMatching(videoName);
+    final normalizedSubtitle = _normalizeForSubtitleMatching(subtitleName);
 
-    // Episode number match (e.g., "Episode.S01E01.mkv" -> "S01E01.srt")
-    final episodeMatch = RegExp(r'S(\d{1,2})E(\d{1,2})', caseSensitive: false).firstMatch(videoName);
-    if (episodeMatch != null) {
-      final episodeCode = 'S${episodeMatch.group(1)}E${episodeMatch.group(2)}';
-      if (subtitleName == episodeCode) return true;
+    // Exact match after normalization
+    if (normalizedVideo == normalizedSubtitle) return true;
+
+    // Episode code matching - check if both have the same episode code
+    final videoEpisodeMatch = RegExp(r'S(\d{1,2})E(\d{1,2})', caseSensitive: false).firstMatch(videoName);
+    final subtitleEpisodeMatch = RegExp(r'S(\d{1,2})E(\d{1,2})', caseSensitive: false).firstMatch(subtitleName);
+
+    if (videoEpisodeMatch != null && subtitleEpisodeMatch != null) {
+      final videoEpisode = 'S${videoEpisodeMatch.group(1)}E${videoEpisodeMatch.group(2)}';
+      final subtitleEpisode = 'S${subtitleEpisodeMatch.group(1)}E${subtitleEpisodeMatch.group(2)}';
+      if (videoEpisode == subtitleEpisode) return true;
     }
 
-    // Close match - subtitle name is contained in video name or vice versa
-    // (e.g., "Episode.S01E01.mkv" -> "Episode.S01E01.English.srt")
-    if (subtitleName.contains(videoName) || videoName.contains(subtitleName)) return true;
+    // Check if they have the same episode code even if one doesn't have it extracted
+    if (videoEpisodeMatch != null || subtitleEpisodeMatch != null) {
+      final episodeCode = videoEpisodeMatch != null
+          ? 'S${videoEpisodeMatch.group(1)}E${videoEpisodeMatch.group(2)}'
+          : 'S${subtitleEpisodeMatch!.group(1)}E${subtitleEpisodeMatch.group(2)}';
+      if (videoName.contains(episodeCode) && subtitleName.contains(episodeCode)) return true;
+    }
 
-    // For movies: if there's only one video file in the directory and subtitle files,
-    // associate all subtitles with the video (common movie scenario)
-    // This will be handled at a higher level since we don't have directory context here
+    // Common words matching - check if they share significant words
+    final videoWords = _extractSignificantWords(normalizedVideo);
+    final subtitleWords = _extractSignificantWords(normalizedSubtitle);
+
+    // If they share at least 2 significant words, consider them related
+    final commonWords = videoWords.intersection(subtitleWords);
+    if (commonWords.length >= 2) return true;
+
+    // One name contains a significant portion of the other
+    if (normalizedSubtitle.contains(normalizedVideo) || normalizedVideo.contains(normalizedSubtitle)) return true;
 
     return false;
+  }
+
+  String _normalizeForSubtitleMatching(String name) {
+    // Remove common quality indicators and extra info
+    var normalized = name;
+    for (final indicator in qualityIndicators) {
+      normalized = normalized.replaceAll(RegExp(r'\b' + RegExp.escape(indicator) + r'\b', caseSensitive: false), '');
+    }
+    return normalized
+        .replaceAll(RegExp(r'\([^)]*\)'), '') // Remove parentheses content
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  Set<String> _extractSignificantWords(String text) {
+    // Extract words that are likely to be meaningful for matching
+    final words = text.split(RegExp(r'\s+'));
+    return words.where((word) {
+      // Keep words that are not just numbers, single chars, or common quality terms
+      return word.length > 2 &&
+             !RegExp(r'^\d+$').hasMatch(word) &&
+             !subtitleFilterWords.contains(word.toLowerCase());
+    }).toSet();
   }
 
   Future<MediaItem?> _analyzeFile(String filePath, String rootPath) async {
