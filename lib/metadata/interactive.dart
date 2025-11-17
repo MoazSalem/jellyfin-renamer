@@ -13,12 +13,18 @@ class InteractivePrompt {
   ///
   /// [suggestions] - List of movie suggestions to present to the user
   /// Returns the selected movie or null if user chooses to skip.
-  Future<Movie?> promptMovieDetails(List<Movie> suggestions) async {
+  Future<Movie?> promptMovieDetails(
+    MediaItem item,
+    List<Movie> suggestions,
+  ) async {
     if (suggestions.isEmpty) {
       return _promptManualMovieEntry();
     }
 
-    _stdout.writeln('Found movie matches:');
+    _stdout
+      ..writeln()
+      ..writeln('Processing file: ${path.basename(item.path)}')
+      ..writeln('Found movie matches:');
     for (var i = 0; i < suggestions.length; i++) {
       _stdout.writeln('${i + 1}. ${suggestions[i].jellyfinName}');
     }
@@ -144,30 +150,6 @@ class InteractivePrompt {
       year: year,
       seasons: [], // Will be populated from files
     );
-  }
-
-  /// Prompts user to enter a custom folder name for TV shows.
-  ///
-  /// Returns the user-specified folder name for organizing TV shows.
-  Future<String> promptTvFolderName() async {
-    _stdout
-      ..writeln('\n📁 TV Shows Folder Configuration')
-      ..writeln(
-        'Jellyfin typically organizes TV shows under a "TV Shows" folder.',
-      )
-      ..writeln(
-        'You can customize this folder name or '
-        'leave it empty to skip the folder.',
-      )
-      ..write(
-        'Enter TV shows folder name (default: "TV Shows", empty to skip): ',
-      );
-
-    final input = _readLine().trim();
-    if (input.isEmpty) {
-      return ''; // Skip the folder
-    }
-    return input;
   }
 
   /// Prompts user to choose a title extraction method when the detected title

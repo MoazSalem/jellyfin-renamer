@@ -285,16 +285,11 @@ class MediaScanner {
       r'\b(\d{1,2})(\d{2})\b',
     ).firstMatch(fileName);
     if (threeDigitMatch != null) {
-      _logger.debug('Matched 3-digit single episode pattern: ${threeDigitMatch.group(0)}');
-      final potentialYear = int.tryParse(threeDigitMatch.group(0)!);
-      if (potentialYear != null && potentialYear >= 1900 && potentialYear <= DateTime.now().year + 1) {
-        _logger.debug('Ignoring potential year match: $potentialYear');
-      } else {
-        final seasonNum = int.parse(threeDigitMatch.group(1)!);
-        final episodeNum = int.parse(threeDigitMatch.group(2)!);
-        if (seasonNum > 0 && seasonNum < 50 && episodeNum > 0) {
-          return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
-        }
+      _logger.debug('Matched 3-digit single episode pattern.');
+      final seasonNum = int.parse(threeDigitMatch.group(1)!);
+      final episodeNum = int.parse(threeDigitMatch.group(2)!);
+      if (seasonNum > 0 && seasonNum < 50 && episodeNum > 0) {
+        return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
       }
     }
 
@@ -342,23 +337,12 @@ class MediaScanner {
     final fileName = path.basenameWithoutExtension(filePath);
     final parentDirName = path.basename(path.dirname(filePath));
 
-    // SxxExx patterns (single and multi)
+    // 1. SxxExx patterns (unambiguous TV)
     if (RegExp(r'S\d{1,2}E\d{1,2}', caseSensitive: false).hasMatch(fileName)) {
       return MediaType.tvShow;
     }
 
-    // 3-digit patterns (single and multi)
-    if (RegExp(r'\b\d{3,4}\b').hasMatch(fileName)) {
-      final match = RegExp(r'\b(\d{1,2})(\d{2})\b').firstMatch(fileName);
-      if (match != null) {
-        final seasonNum = int.parse(match.group(1)!);
-        if (seasonNum > 0 && seasonNum < 50) {
-          return MediaType.tvShow;
-        }
-      }
-    }
-
-    // Season folder context
+    // 2. Season folder context (unambiguous TV)
     if (RegExp(
       r'^(season\s*\d+|s\d+)$',
       caseSensitive: false,
@@ -369,9 +353,20 @@ class MediaScanner {
       }
     }
 
-    // Movie pattern
+    // 3. Movie year pattern (unambiguous Movie)
     if (RegExp(r'\b(19|20)\d{2}\b').hasMatch(fileName)) {
       return MediaType.movie;
+    }
+
+    // 4. 3-digit episode patterns (now less ambiguous)
+    if (RegExp(r'\b\d{3,4}\b').hasMatch(fileName)) {
+      final match = RegExp(r'\b(\d{1,2})(\d{2})\b').firstMatch(fileName);
+      if (match != null) {
+        final seasonNum = int.parse(match.group(1)!);
+        if (seasonNum > 0 && seasonNum < 50) {
+          return MediaType.tvShow;
+        }
+      }
     }
 
     return MediaType.unknown;

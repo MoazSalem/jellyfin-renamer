@@ -31,7 +31,6 @@ class MediaRenamer {
   final InteractivePrompt _interactive = InteractivePrompt();
   final app_logger.AppLogger _logger;
   final TvShowGrouper _grouper = TvShowGrouper();
-  String? _tvFolderName;
   final List<RenameOperation> _plannedOperations = [];
   final Map<String, UndoLogger> _loggers = {};
   late String? _scanRoot;
@@ -75,11 +74,6 @@ class MediaRenamer {
       _isSingleShowScan = true;
     } else {
       _isSingleShowScan = false;
-    }
-
-    // Prompt for TV folder name if interactive and there are TV shows
-    if (interactive && tvShowItems.isNotEmpty && _tvFolderName == null) {
-      _tvFolderName = await _interactive.promptTvFolderName();
     }
 
     // Process movies individually
@@ -184,17 +178,8 @@ class MediaRenamer {
     }
   }
 
-  String _getTargetDirectory(String mediaType) {
-    final baseDir = _getOutputBaseDirectory();
-
-    if (mediaType == 'TV Shows') {
-      final folderName = _tvFolderName ?? 'TV Shows';
-      if (folderName.isEmpty) {
-        return baseDir;
-      }
-      return path.join(baseDir, folderName);
-    }
-    return path.join(baseDir, mediaType);
+  String _getTargetDirectory() {
+    return _getOutputBaseDirectory();
   }
 
   Future<void> _processMovie(
@@ -206,6 +191,7 @@ class MediaRenamer {
     // In a full implementation, this would fetch from TMDB/IMDB
     var movieTitle = item.detectedTitle ?? _extractTitleFromPath(item.path);
     var movieYear = item.detectedYear;
+    _logger.debug('Detected year for ${item.path}: ${item.detectedYear}');
 
     // Check if title looks reasonable, prompt for better extraction if not
     if (interactive && !TitleProcessor.isTitleReasonable(movieTitle)) {
@@ -231,12 +217,13 @@ class MediaRenamer {
     var confirmedMovie = movie;
     if (interactive) {
       // In interactive mode, prompt user to confirm/edit metadata
-      final promptedMovie = await _interactive.promptMovieDetails([movie]);
+      final promptedMovie =
+          await _interactive.promptMovieDetails(item, [movie]);
       if (promptedMovie == null) return; // User cancelled
       confirmedMovie = promptedMovie;
     }
 
-    final targetDir = _getTargetDirectory('Movies');
+    final targetDir = _getTargetDirectory();
     _planRenameMovie(confirmedMovie, item.path, targetDir, item.subtitlePaths);
   }
 
@@ -311,7 +298,7 @@ class MediaRenamer {
       seasons: seasons,
     );
 
-    final targetDir = _getTargetDirectory('TV Shows');
+    final targetDir = _getTargetDirectory();
     _planRenameTvShowGroup(show, fileEpisodeMap, episodeSubtitleMap, targetDir);
   }
 

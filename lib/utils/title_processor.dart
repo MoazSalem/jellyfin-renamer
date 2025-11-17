@@ -33,12 +33,16 @@ class TitleProcessor {
     // Clean the filename first
     final cleanName = _cleanFilename(fileName);
 
-    // Combine patterns and filter words
+    // First, extract the year from the full clean name.
+    final yearMatch = RegExp(r'\b(19|20)\d{2}\b').firstMatch(cleanName);
+    int? year = yearMatch != null ? int.tryParse(yearMatch.group(0)!) : null;
+
+    // Now, find the earliest keyword to determine where the title ends.
     final patterns = [
       r'\bSeason\b',
       r'S\d{1,2}E\d{1,2}',
       r'\bS\d{1,2}\b',
-      r'\b(19|20)\d{2}\b',
+      r'\b(19|20)\d{2}\b', // Keep year here to find title boundary
       ...filenameFilterWords.map((word) => r'\b' + RegExp.escape(word) + r'\b'),
     ];
 
@@ -54,23 +58,8 @@ class TitleProcessor {
     // Extract the title part before the keyword
     var title = cleanName.substring(0, earliestEndIndex).trim();
 
-    // Extract year if present in the title
-    final yearMatch = RegExp(r'\b(19|20)\d{2}\b').firstMatch(title);
-    int? year;
-    if (yearMatch != null) {
-      year = int.tryParse(yearMatch.group(0)!);
-      title = title
-          .replaceFirst(
-            RegExp(r'\b${yearMatch.group(0)!}\b'),
-            '',
-          )
-          .trim();
-    }
-
     // Final cleanup of the extracted title
-    title = title
-        .replaceAll(RegExp(r'[\s._]+$'), '')
-        .trim(); // Remove trailing separators
+    title = title.replaceAll(RegExp(r'[\s._]+$'), '').trim();
 
     return (title: title.isNotEmpty ? title : null, year: year);
   }
