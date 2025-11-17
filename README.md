@@ -4,15 +4,22 @@ A command-line tool for renaming media libraries to comply with [Jellyfin's offi
 
 ## Features
 
-- **Automatic Detection**: Scans directories and automatically detects whether files are movies or TV episodes
-- **Smart Grouping**: Groups multiple episodes from the same TV show for efficient processing using directory-based organization
-- **Directory-Aware**: Intelligently extracts show names from folder names, parent directories, and filename patterns
-- **Subtitle Support**: Automatically detects and renames subtitle files (.srt, .sub, .ass, .ssa, .vtt) alongside video files
-- **Jellyfin Compliance**: Renames files and creates proper folder structures following Jellyfin standards
-- **Dry Run Mode**: Preview changes before applying them
-- **Enhanced Undo System**: Complete undo capability with human-readable logs, proper error handling, and automatic cleanup
-- **Interactive Mode**: Intelligent prompts showing detected metadata, file information, and prioritized naming options
-- **Cross-Platform**: Works on Windows, Linux, and macOS
+-   **Advanced TV Show Detection**: Automatically detects episodes from a wide variety of filename and folder structures, including:
+    -   Standard `SxxExx` format (`Show.S01E01.mkv`)
+    -   Three-Digit format (`Show.101.mkv` for Season 1, Episode 1)
+    -   Folder-based numbering (`.../Season 1/01.mkv`)
+    -   Multi-Episode Files: Correctly parses and formats files containing multiple episodes from patterns like `S01E01-E02`, `101-102`, and `.../Season 1/01-02.mkv`.
+-   **Intelligent TV Show Grouping**:
+    -   Scans and groups multiple directories belonging to the same show (e.g., `Breaking Bad (2008)` and `Breaking Bad Season 2`) into a single, streamlined renaming operation.
+    -   Performs case-insensitive grouping to correctly identify shows with inconsistent folder names.
+    -   Prompts for confirmation before merging grouped shows to ensure accuracy.
+-   **Smart Output Directory Logic**: Prevents the creation of nested output folders. When you scan a directory containing just a single show (e.g., `/downloads/The Mentalist Complete/`), the renamed `TV Shows` folder is created alongside it (in `/downloads/`), not inside it.
+-   **Comprehensive Subtitle Support**: Automatically detects, matches, and renames a wide variety of subtitle files alongside their corresponding video files.
+-   **Jellyfin Compliance**: Renames files and creates proper folder structures following Jellyfin standards
+-   **Dry Run Mode**: Preview changes before applying them
+-   **Enhanced Undo System**: Complete undo capability with human-readable logs, proper error handling, and automatic cleanup
+-   **Interactive Mode**: Intelligent prompts showing detected metadata, file information, and prioritized naming options
+-   **Cross-Platform**: Works on Windows, Linux, and macOS
 
 ## Installation
 
@@ -38,77 +45,74 @@ renamer rename --path "testing_playground/Anne With An E/Anne.With.An.E.Season.1
 
 ## Usage
 
-### Scan Directory
+### 1. Scan Directory (Optional)
 
-Scan a directory for media files and detect their types:
-
-```bash
-renamer scan --path /path/to/media
-```
-
-The scan command shows detailed information including associated subtitle files:
-
-```
-INFO: Found 1 media items:
-INFO:   MediaType.movie: path/to/Inception.2010.mkv
-INFO:     Subtitles: 2
-INFO:       path/to/Inception.2010.srt
-INFO:       path/to/Inception.2010.English.srt
-```
-
-### Rename Files (Dry Run)
-
-Preview what would be renamed without making changes:
+Scan a directory to see what media files the tool detects.
 
 ```bash
-renamer rename --path /path/to/media --dry-run
+renamer scan --path /path/to/your/media
 ```
 
-### Rename Files (Apply Changes)
+### 2. Rename Files (Dry Run)
 
-Apply the renaming with interactive prompts:
+Preview the renaming operations without making any changes. This is the default behavior.
 
 ```bash
-renamer rename --path /path/to/media
+renamer rename --path /path/to/your/media
 ```
 
-The interactive mode intelligently groups episodes and shows multiple naming options from directory structure:
+The interactive mode will guide you through the process, showing detected episodes and providing naming options:
 
 ```
-📺 Found 7 episode files in directory: Anne With An E Season 1 [WEBRip]
-  • Anne.S01E01.mkv → Season 1, Episode 1
-  • Anne.S01E02.mkv → Season 1, Episode 2
-  • Anne.S01E03.mkv → Season 1, Episode 3
-  • Anne.S01E04.mkv → Season 1, Episode 4
-  • Anne.S01E05.mkv → Season 1, Episode 5
-  • Anne.S01E06.mkv → Season 1, Episode 6
-  • Anne.S01E07.mkv → Season 1, Episode 7
+📺 Found 2 episode files:
+  • T.M.101.rmvb → Season 1, Episode 1
+  • T.M.102.rmvb → Season 1, Episode 2
 
 Detected show name options:
-1. Anne With An E          ← Parent directory (most likely correct)
-2. Anne 720p WEBRip x265   ← Current directory
+1. The Mentalist
+2. T M 101
 3. Enter different show name
 4. Skip these files
+Select option: 1
+
+...
+
+📁 Preview of final structure:
+└── TV Shows
+    └── The Mentalist
+        └── Season 01
+            ├── The Mentalist S01E01.rmvb
+            └── The Mentalist S01E02.rmvb
+
+This is a dry run. No files will be modified.
 ```
 
-Skip interactive prompts (uses detected metadata):
+### 3. Apply Changes
+
+To apply the changes, run the `rename` command and confirm at the prompt, or use the `--no-interactive` flag.
 
 ```bash
-renamer rename --path /path/to/media --no-interactive
+# Run interactively and confirm at the prompt
+renamer rename --path /path/to/your/media
+
+# Or, run non-interactively (not recommended until you've done a dry run)
+renamer rename --path /path/to/your/media --no-interactive
 ```
 
-### Undo Changes
+### 4. Undo Changes
 
-Revert previous rename operations:
+If you need to revert the last operation, use the `undo` command.
 
 ```bash
 renamer undo
 ```
 
-Preview what would be undone:
+### Verbose Logging
+
+To enable detailed debug logging for troubleshooting, use the global `--verbose` (`-v`) flag:
 
 ```bash
-renamer undo --preview
+renamer rename --path /path/to/your/media --verbose
 ```
 
 ## Naming Conventions
@@ -154,42 +158,40 @@ Example:
 ## Command Line Options
 
 ### Global Options
-- `-v, --verbose`: Show detailed output
+- `-v, --verbose`: Enable detailed debug logging for troubleshooting.
 - `-h, --help`: Show help information
 
 ### Scan Command
 - `-p, --path`: Root directory to scan (required)
-- `-v, --verbose`: Show detailed output
 
 ### Rename Command
 - `-p, --path`: Root directory to process (required)
 - `-d, --dry-run`: Preview changes without applying them
 - `-i, --interactive`: Prompt for confirmation (default: true)
 - `-l, --log`: Path to undo log file (default: rename_log.json)
-- `-v, --verbose`: Show detailed output
 
 ### Undo Command
 - `-l, --log`: Path to undo log file (default: rename_log.json)
 - `-p, --preview`: Show what will be undone without applying
-- `-v, --verbose`: Show detailed output
 
 ## File Detection
 
 The tool automatically detects media types based on filename patterns:
 
-- **TV Shows**: Files containing `S01E01`, `S02E05`, etc.
-- **Movies**: Files containing years (e.g., `2010`, `2023`)
-- **Subtitles**: Files with extensions `.srt`, `.sub`, `.ass`, `.ssa`, `.vtt`
-- **Unknown**: Files that don't match these patterns
+-   **TV Shows**: Files containing `S01E01`, `S02E05`, three-digit formats like `101` (S01E01), multi-episode formats like `S01E01-E02` or `101-102`, and numbered files within season folders.
+-   **Movies**: Files containing years (e.g., `2010`, `2023`)
+-   **Subtitles**: Files with extensions `.srt`, `.sub`, `.ass`, `.ssa`, `.vtt`
+-   **Unknown**: Files that don't match these patterns
 
 ### Subtitle Association
 
 Subtitle files are automatically associated with video files using intelligent matching:
 
-- **Exact match**: `Movie.mkv` → `Movie.srt`
-- **Episode code match**: `Show.S01E01.mkv` → `S01E01.srt`
-- **Close name match**: `Movie.mkv` → `Movie.English.srt`
-- **Directory-based**: Subtitles in the same folder as videos are associated
+-   **Exact match**: `Movie.mkv` → `Movie.srt`
+-   **Episode code match**: `Show.S01E01.mkv` → `S01E01.srt`
+-   **Close name match**: `Movie.mkv` → `Movie.English.srt`
+-   **Directory-based**: Subtitles in the same folder as videos are associated
+-   **Stricter Numeric Matching**: Prevents incorrect associations between purely numeric filenames (e.g., `10.mkv` will not be matched with `1.srt`).
 
 ## Undo System
 
