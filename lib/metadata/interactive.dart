@@ -21,31 +21,32 @@ class InteractivePrompt {
       return _promptManualMovieEntry();
     }
 
-    _stdout
-      ..writeln()
-      ..writeln('Processing file: ${path.basename(item.path)}')
-      ..writeln('Found movie matches:');
-    for (var i = 0; i < suggestions.length; i++) {
-      _stdout.writeln('${i + 1}. ${suggestions[i].jellyfinName}');
+    while (true) {
+      _stdout
+        ..writeln()
+        ..writeln('Processing file: ${path.basename(item.path)}')
+        ..writeln('Found movie matches:');
+      for (var i = 0; i < suggestions.length; i++) {
+        _stdout.writeln('${i + 1}. ${suggestions[i].jellyfinName}');
+      }
+      _stdout
+        ..writeln('${suggestions.length + 1}. Enter manually')
+        ..writeln('${suggestions.length + 2}. Skip this file')
+        ..write('Select option: ');
+
+      final input = _readLine().trim();
+      final choice = int.tryParse(input);
+
+      if (choice != null && choice > 0 && choice <= suggestions.length) {
+        return suggestions[choice - 1];
+      } else if (choice == suggestions.length + 1) {
+        return _promptManualMovieEntry();
+      } else if (choice == suggestions.length + 2) {
+        return null; // Skip
+      }
+
+      _stdout.writeln('Invalid choice, please try again.');
     }
-    _stdout
-      ..writeln('${suggestions.length + 1}. Enter manually')
-      ..writeln('${suggestions.length + 2}. Skip this file')
-      ..write('Select option: ');
-
-    final input = _readLine().trim();
-    final choice = int.tryParse(input);
-
-    if (choice != null && choice > 0 && choice <= suggestions.length) {
-      return suggestions[choice - 1];
-    } else if (choice == suggestions.length + 1) {
-      return _promptManualMovieEntry();
-    } else if (choice == suggestions.length + 2) {
-      return null; // Skip
-    }
-
-    _stdout.writeln('Invalid choice, skipping...');
-    return null;
   }
 
   Future<Movie> _promptManualMovieEntry() async {
@@ -80,57 +81,58 @@ class InteractivePrompt {
     List<({String? title, int? year})> showCandidates,
     List<MediaItem> files,
   ) async {
-    _stdout.writeln(
-      '\n📺 Found ${files.length} episode files:',
-    );
+    while (true) {
+      _stdout.writeln(
+        '\n📺 Found ${files.length} episode files:',
+      );
 
-    for (final file in files) {
-      final fileName = path.basename(file.path);
-      final episode = file.episode;
-      if (episode != null) {
-        var episodeString = 'Episode ${episode.episodeNumberStart}';
-        if (episode.episodeNumberEnd != null) {
-          episodeString += '-${episode.episodeNumberEnd}';
+      for (final file in files) {
+        final fileName = path.basename(file.path);
+        final episode = file.episode;
+        if (episode != null) {
+          var episodeString = 'Episode ${episode.episodeNumberStart}';
+          if (episode.episodeNumberEnd != null) {
+            episodeString += '-${episode.episodeNumberEnd}';
+          }
+          _stdout.writeln(
+            '  • $fileName → Season ${episode.seasonNumber}, $episodeString',
+          );
+        } else {
+          _stdout.writeln('  • $fileName → Could not parse episode info');
         }
-        _stdout.writeln(
-          '  • $fileName → Season ${episode.seasonNumber}, $episodeString',
-        );
-      } else {
-        _stdout.writeln('  • $fileName → Could not parse episode info');
       }
+
+      _stdout.writeln('\nDetected show name options:');
+      final validCandidates = showCandidates
+          .where((c) => c.title != null)
+          .toSet()
+          .toList();
+      for (var i = 0; i < validCandidates.length; i++) {
+        final candidate = validCandidates[i];
+        final displayName = candidate.year != null
+            ? '${candidate.title} (${candidate.year})'
+            : candidate.title;
+        _stdout.writeln('${i + 1}. $displayName');
+      }
+      _stdout
+        ..writeln('${validCandidates.length + 1}. Enter different show name')
+        ..writeln('${validCandidates.length + 2}. Skip these files')
+        ..write('Select option: ');
+
+      final input = _readLine().trim();
+      final choice = int.tryParse(input);
+
+      if (choice != null && choice > 0 && choice <= validCandidates.length) {
+        final selected = validCandidates[choice - 1];
+        return TvShow(title: selected.title!, year: selected.year, seasons: []);
+      } else if (choice == validCandidates.length + 1) {
+        return _promptManualShowEntry();
+      } else if (choice == validCandidates.length + 2) {
+        return null;
+      }
+
+      _stdout.writeln('Invalid choice, please try again.');
     }
-
-    _stdout.writeln('\nDetected show name options:');
-    final validCandidates = showCandidates
-        .where((c) => c.title != null)
-        .toSet()
-        .toList();
-    for (var i = 0; i < validCandidates.length; i++) {
-      final candidate = validCandidates[i];
-      final displayName = candidate.year != null
-          ? '${candidate.title} (${candidate.year})'
-          : candidate.title;
-      _stdout.writeln('${i + 1}. $displayName');
-    }
-    _stdout
-      ..writeln('${validCandidates.length + 1}. Enter different show name')
-      ..writeln('${validCandidates.length + 2}. Skip these files')
-      ..write('Select option: ');
-
-    final input = _readLine().trim();
-    final choice = int.tryParse(input);
-
-    if (choice != null && choice > 0 && choice <= validCandidates.length) {
-      final selected = validCandidates[choice - 1];
-      return TvShow(title: selected.title!, year: selected.year, seasons: []);
-    } else if (choice == validCandidates.length + 1) {
-      return _promptManualShowEntry();
-    } else if (choice == validCandidates.length + 2) {
-      return null;
-    }
-
-    _stdout.writeln('Invalid choice, skipping...');
-    return null;
   }
 
   Future<TvShow> _promptManualShowEntry() async {
@@ -162,68 +164,72 @@ class InteractivePrompt {
     String fileName,
     String? currentTitle,
   ) async {
-    _stdout
-      ..writeln('\n📝 Title Detection Options')
-      ..writeln('Filename: $fileName')
-      ..writeln('Current detected title: "${currentTitle ?? 'None'}"');
+    while (true) {
+      _stdout
+        ..writeln('\n📝 Title Detection Options')
+        ..writeln('Filename: $fileName')
+        ..writeln('Current detected title: "${currentTitle ?? 'None'}"');
 
-    // Automatically extract title using keyword method
-    final extractedResult = TitleProcessor.extractTitleUntilKeywords(fileName);
-    final extractedTitle = extractedResult.title;
+      // Automatically extract title using keyword method
+      final extractedResult = TitleProcessor.extractTitleUntilKeywords(
+        fileName,
+      );
+      final extractedTitle = extractedResult.title;
 
-    _stdout
-      ..writeln()
-      ..writeln('Choose title to use:')
-      ..writeln('1. Use current detected title');
+      _stdout
+        ..writeln()
+        ..writeln('Choose title to use:')
+        ..writeln('1. Use current detected title');
 
-    if (extractedTitle != null && extractedTitle != currentTitle) {
-      _stdout.writeln('2. Use extracted title: "$extractedTitle"');
-    }
-
-    final manualOption =
-        extractedTitle != null && extractedTitle != currentTitle ? 3 : 2;
-    final skipOption = extractedTitle != null && extractedTitle != currentTitle
-        ? 4
-        : 3;
-
-    _stdout
-      ..writeln('$manualOption. Enter title manually')
-      ..writeln('$skipOption. Skip this file')
-      ..write('Select option (1-$skipOption): ');
-
-    final input = _readLine().trim();
-    final choice = int.tryParse(input);
-
-    if (choice == 1) {
-      // Extract year from current title if present
-      final yearMatch = RegExp(
-        r'\b(19|20)\d{2}\b',
-      ).firstMatch(currentTitle ?? '');
-      final year = yearMatch != null ? int.tryParse(yearMatch.group(0)!) : null;
-      return (title: currentTitle, year: year);
-    } else if (extractedTitle != null &&
-        extractedTitle != currentTitle &&
-        choice == 2) {
-      return extractedResult;
-    } else if (choice == manualOption) {
-      // Manual entry
-      _stdout.write('Enter title: ');
-      final title = _readLine().trim();
-      if (title.isEmpty) {
-        _stdout.writeln('Title cannot be empty.');
-        return null;
+      if (extractedTitle != null && extractedTitle != currentTitle) {
+        _stdout.writeln('2. Use extracted title: "$extractedTitle"');
       }
 
-      _stdout.write('Enter year (optional): ');
-      final yearInput = _readLine().trim();
-      final year = yearInput.isNotEmpty ? int.tryParse(yearInput) : null;
+      final manualOption =
+          extractedTitle != null && extractedTitle != currentTitle ? 3 : 2;
+      final skipOption =
+          extractedTitle != null && extractedTitle != currentTitle ? 4 : 3;
 
-      return (title: title, year: year);
-    } else if (choice == skipOption) {
-      return null; // Skip
-    } else {
-      _stdout.writeln('Invalid choice.');
-      return null;
+      _stdout
+        ..writeln('$manualOption. Enter title manually')
+        ..writeln('$skipOption. Skip this file')
+        ..write('Select option (1-$skipOption): ');
+
+      final input = _readLine().trim();
+      final choice = int.tryParse(input);
+
+      if (choice == 1) {
+        // Extract year from current title if present
+        final yearMatch = RegExp(
+          r'\b(19|20)\d{2}\b',
+        ).firstMatch(currentTitle ?? '');
+        final year = yearMatch != null
+            ? int.tryParse(yearMatch.group(0)!)
+            : null;
+        return (title: currentTitle, year: year);
+      } else if (extractedTitle != null &&
+          extractedTitle != currentTitle &&
+          choice == 2) {
+        return extractedResult;
+      } else if (choice == manualOption) {
+        // Manual entry
+        _stdout.write('Enter title: ');
+        final title = _readLine().trim();
+        if (title.isEmpty) {
+          _stdout.writeln('Title cannot be empty.');
+          return null;
+        }
+
+        _stdout.write('Enter year (optional): ');
+        final yearInput = _readLine().trim();
+        final year = yearInput.isNotEmpty ? int.tryParse(yearInput) : null;
+
+        return (title: title, year: year);
+      } else if (choice == skipOption) {
+        return null; // Skip
+      } else {
+        _stdout.writeln('Invalid choice, please try again.');
+      }
     }
   }
 
@@ -237,28 +243,44 @@ class InteractivePrompt {
     String showNameGuess,
     List<List<MediaItem>> directoryGroups,
   ) async {
-    _stdout
-      ..writeln(
-        "\n🤔 I've found ${directoryGroups.length} directories that seem to"
-        ' belong to the same show: "$showNameGuess".',
-      )
-      ..writeln('Directories found:');
-    for (final group in directoryGroups) {
-      final dirPath = path.dirname(group.first.path);
-      _stdout.writeln('  - $dirPath');
+    while (true) {
+      _stdout
+        ..writeln(
+          "\n🤔 I've found ${directoryGroups.length} directories that seem to"
+          ' belong to the same show: "$showNameGuess".',
+        )
+        ..writeln('Directories found:');
+      for (final group in directoryGroups) {
+        final dirPath = path.dirname(group.first.path);
+        _stdout.writeln('  - $dirPath');
+      }
+      _stdout.write('Are these directories for the same show? (y/n): ');
+      final input = _readLine().trim().toLowerCase();
+      if (input == 'y' || input == 'yes') {
+        return true;
+      } else if (input == 'n' || input == 'no') {
+        return false;
+      } else {
+        _stdout.writeln('Invalid choice, please enter "y" or "n".');
+      }
     }
-    _stdout.write('Are these directories for the same show? (y/n): ');
-    final input = _readLine().trim().toLowerCase();
-    return input == 'y' || input == 'yes';
   }
 
   /// Prompts user to confirm execution of the planned operations.
   ///
   /// Returns true if the user confirms, false otherwise.
   Future<bool> confirmExecution() async {
-    _stdout.write('\nProceed with the above operations? (y/n): ');
-    final input = _readLine().trim().toLowerCase();
-    return input == 'y' || input == 'yes';
+    while (true) {
+      _stdout.write('\nProceed with the above operations? (y/n): ');
+      final input = _readLine().trim().toLowerCase();
+      if (input == 'y' || input == 'yes') {
+        return true;
+      } else if (input == 'n' || input == 'no') {
+        return false;
+      } else {
+        _stdout.writeln('Invalid choice, please enter "y" or "n".');
+      }
+    }
   }
 
   String _readLine() {

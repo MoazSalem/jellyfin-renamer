@@ -225,6 +225,7 @@ class MediaScanner {
     }
   }
 
+  /// Extracts episode information from the given file path.
   Episode? extractEpisodeInfo(String filePath) {
     _logger.debug('_extractEpisodeInfo called for filePath: $filePath');
     final fileName = path.basenameWithoutExtension(filePath);

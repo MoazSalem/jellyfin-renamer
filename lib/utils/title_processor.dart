@@ -35,7 +35,7 @@ class TitleProcessor {
 
     // First, extract the year from the full clean name.
     final yearMatch = RegExp(r'\b(19|20)\d{2}\b').firstMatch(cleanName);
-    int? year = yearMatch != null ? int.tryParse(yearMatch.group(0)!) : null;
+    final year = yearMatch != null ? int.tryParse(yearMatch.group(0)!) : null;
 
     // Now, find the earliest keyword to determine where the title ends.
     final patterns = [

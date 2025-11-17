@@ -1,5 +1,4 @@
 import 'package:renamer/core/scanner.dart';
-import 'package:renamer/metadata/models.dart';
 import 'package:test/test.dart';
 
 void main() {
