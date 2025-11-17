@@ -50,7 +50,7 @@ void main() {
 
   group('Episode model', () {
     test('generates correct episode code', () {
-      final episode = Episode(seasonNumber: 1, episodeNumber: 5);
+      final episode = Episode(seasonNumber: 1, episodeNumberStart: 5);
       expect(episode.episodeCode, 'S01E05');
     });
   });

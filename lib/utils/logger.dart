@@ -1,28 +1,11 @@
-import 'dart:async';
-
 import 'package:logging/logging.dart';
 
 /// Application logger that wraps the Dart logging package.
 class AppLogger {
   /// Creates a new application logger instance.
-  ///
-  /// [verbose] - If true, enables all log levels.
-  /// Otherwise, only INFO and above.
-  AppLogger({this.verbose = false}) : _logger = Logger('renamer') {
-    if (_subscription == null) {
-      hierarchicalLoggingEnabled = true;
-      _subscription = _logger.onRecord.listen((record) {
-        print('${record.level.name}: ${record.message}');
-      });
-    }
-    _logger.level = verbose ? Level.ALL : Level.INFO;
-  }
+  AppLogger({String name = 'MediaRenamer'}) : _logger = Logger(name);
 
-  static StreamSubscription<LogRecord>? _subscription;
   final Logger _logger;
-
-  /// Whether to enable verbose logging.
-  final bool verbose;
 
   /// Logs an info message.
   void info(String message) {
@@ -35,14 +18,11 @@ class AppLogger {
   }
 
   /// Logs an error message.
-  void error(String message) {
-    _logger.severe(message);
-  }
+  void error(String message, [Object? error, StackTrace? stackTrace]) =>
+      _logger.severe(message, error, stackTrace);
 
-  /// Logs a debug message (only when verbose mode is enabled).
+  /// Logs a debug message.
   void debug(String message) {
-    if (verbose) {
-      _logger.fine(message);
-    }
+    _logger.fine(message);
   }
 }

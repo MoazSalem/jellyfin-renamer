@@ -3,10 +3,19 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:renamer/config/file_extensions.dart';
 import 'package:renamer/metadata/models.dart';
+import 'package:renamer/utils/logger.dart' as app_logger;
 import 'package:renamer/utils/title_processor.dart';
 
 /// Scanner for discovering media files and their associated subtitle files.
 class MediaScanner {
+  /// Creates a new media scanner instance.
+  ///
+  /// [logger] logger instance, a default logger is used if not provided.
+  MediaScanner({app_logger.AppLogger? logger})
+    : _logger = logger ?? app_logger.AppLogger();
+
+  final app_logger.AppLogger _logger;
+
   /// Scans the specified directory recursively for media files.
   ///
   /// Returns a list of [MediaItem] objects containing detected media files
@@ -42,11 +51,7 @@ class MediaScanner {
           videoPath,
           subtitleFiles,
         );
-        final mediaItemWithSubtitles = MediaItem(
-          path: mediaItem.path,
-          type: mediaItem.type,
-          detectedTitle: mediaItem.detectedTitle,
-          detectedYear: mediaItem.detectedYear,
+        final mediaItemWithSubtitles = mediaItem.copyWith(
           subtitlePaths: associatedSubtitles,
         );
         items.add(mediaItemWithSubtitles);
@@ -137,9 +142,27 @@ class MediaScanner {
     final commonWords = videoWords.intersection(subtitleWords);
     if (commonWords.length >= 2) return true;
 
+    // If we are dealing with simple numbered files, they must match exactly.
+    final isVideoNumeric = RegExp(r'^\d+$').hasMatch(normalizedVideo);
+    final isSubtitleNumeric = RegExp(r'^\d+$').hasMatch(normalizedSubtitle);
+    if (isVideoNumeric && isSubtitleNumeric) {
+      return false; // Exact match was already checked,
+      // so these are different numbers.
+    }
+
     // One name contains a significant portion of the other
-    if (normalizedSubtitle.contains(normalizedVideo) ||
-        normalizedVideo.contains(normalizedSubtitle)) {
+    if (normalizedSubtitle.contains(normalizedVideo)) {
+      // This is generally safe, e.g., subtitle has extra language tags
+      return true;
+    }
+
+    if (normalizedVideo.contains(normalizedSubtitle)) {
+      // This is less safe. Disallow if the subtitle is purely numeric,
+      // as it's too ambiguous and leads to false positives
+      // (e.g., '2' in 'S01E02').
+      if (isSubtitleNumeric) {
+        return false;
+      }
       return true;
     }
 
@@ -177,17 +200,24 @@ class MediaScanner {
     try {
       final fileName = path.basenameWithoutExtension(filePath);
 
-      // Detect media type based on filename patterns
-      final mediaType = _detectTypeFromFilename(fileName);
+      // Detect media type based on filename and path
+      final mediaType = _detectTypeFromFilename(filePath);
 
       // Extract basic title and year from filename
       final titleInfo = _extractTitleInfo(fileName);
+
+      // Extract episode info if it's a TV show
+      Episode? episode;
+      if (mediaType == MediaType.tvShow) {
+        episode = _extractEpisodeInfo(filePath);
+      }
 
       return MediaItem(
         path: filePath,
         type: mediaType,
         detectedTitle: titleInfo.title,
         detectedYear: titleInfo.year,
+        episode: episode,
       );
     } on Exception catch (_) {
       // Skip files that can't be analyzed
@@ -195,18 +225,150 @@ class MediaScanner {
     }
   }
 
-  MediaType _detectTypeFromFilename(String fileName) {
-    // Check for episode patterns (SxxExx) - indicates TV shows
+  Episode? _extractEpisodeInfo(String filePath) {
+    _logger.debug('_extractEpisodeInfo called for filePath: $filePath');
+    final fileName = path.basenameWithoutExtension(filePath);
+    final parentDirName = path.basename(path.dirname(filePath));
+    _logger.debug('fileName: $fileName, parentDirName: $parentDirName');
+
+    // SxxExx Patterns (most specific first)
+    // Pattern 1: S01E01-E02 or S01E01-02 (separator is mandatory)
+    final multiEpMatch = RegExp(
+      r'S(\d{1,2})E(\d{1,2})[-_]E?(\d{1,2})',
+      caseSensitive: false,
+    ).firstMatch(fileName);
+    if (multiEpMatch != null) {
+      _logger.debug('Matched multi-episode SxxExx-Exx pattern.');
+      final seasonNum = int.parse(multiEpMatch.group(1)!);
+      final startEp = int.parse(multiEpMatch.group(2)!);
+      final endEp = int.parse(multiEpMatch.group(3)!);
+      return Episode(
+        seasonNumber: seasonNum,
+        episodeNumberStart: startEp,
+        episodeNumberEnd: endEp,
+      );
+    }
+
+    // Pattern 2: S01E01 (single)
+    final singleEpMatch = RegExp(
+      r'S(\d{1,2})E(\d{1,2})',
+      caseSensitive: false,
+    ).firstMatch(fileName);
+    if (singleEpMatch != null) {
+      _logger.debug('Matched single SxxExx pattern.');
+      final seasonNum = int.parse(singleEpMatch.group(1)!);
+      final episodeNum = int.parse(singleEpMatch.group(2)!);
+      return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
+    }
+
+    // 3-Digit Patterns
+    // Pattern 3: 323-324 or 323-24
+    final threeDigitMultiMatch = RegExp(
+      r'\b(\d{1,2})(\d{2})[-_](?:\d{1,2})?(\d{2})\b',
+    ).firstMatch(fileName);
+    if (threeDigitMultiMatch != null) {
+      _logger.debug('Matched 3-digit multi-episode pattern.');
+      final seasonNum = int.parse(threeDigitMultiMatch.group(1)!);
+      final startEp = int.parse(threeDigitMultiMatch.group(2)!);
+      final endEp = int.parse(threeDigitMultiMatch.group(3)!);
+      if (seasonNum > 0 && startEp > 0 && endEp > 0) {
+        return Episode(
+          seasonNumber: seasonNum,
+          episodeNumberStart: startEp,
+          episodeNumberEnd: endEp,
+        );
+      }
+    }
+
+    // Pattern 4: 101 (single)
+    final threeDigitMatch = RegExp(
+      r'\b(\d{1,2})(\d{2})\b',
+    ).firstMatch(fileName);
+    if (threeDigitMatch != null) {
+      _logger.debug('Matched 3-digit single episode pattern.');
+      final seasonNum = int.parse(threeDigitMatch.group(1)!);
+      final episodeNum = int.parse(threeDigitMatch.group(2)!);
+      if (seasonNum > 0 && seasonNum < 50 && episodeNum > 0) {
+        return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
+      }
+    }
+
+    // Season Folder Context Patterns
+    final seasonDirMatch = RegExp(
+      r'^(?:season\s*|s)(\d+)',
+      caseSensitive: false,
+    ).firstMatch(parentDirName);
+    if (seasonDirMatch != null) {
+      _logger.debug(
+        'Matched season in parent directory: ${seasonDirMatch.group(0)}',
+      );
+      final seasonNum = int.parse(seasonDirMatch.group(1)!);
+
+      // Pattern 5a: 12-13
+      final folderMultiMatch = RegExp(
+        r'^(\d{1,2})[-_](\d{1,2})$',
+      ).firstMatch(fileName);
+      if (folderMultiMatch != null) {
+        _logger.debug('Matched multi-episode pattern in season folder.');
+        final startEp = int.parse(folderMultiMatch.group(1)!);
+        final endEp = int.parse(folderMultiMatch.group(2)!);
+        return Episode(
+          seasonNumber: seasonNum,
+          episodeNumberStart: startEp,
+          episodeNumberEnd: endEp,
+        );
+      }
+
+      // Pattern 5b: 12 (single)
+      final episodeFileMatch = RegExp(r'^(\d{1,3})$').firstMatch(fileName);
+      if (episodeFileMatch != null) {
+        _logger.debug('Matched single episode pattern in season folder.');
+        final episodeNum = int.parse(episodeFileMatch.group(1)!);
+        return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
+      }
+      _logger.debug('No episode number match in filename for season folder.');
+    }
+    _logger.debug('No season match in parent directory.');
+
+    return null;
+  }
+
+  MediaType _detectTypeFromFilename(String filePath) {
+    final fileName = path.basenameWithoutExtension(filePath);
+    final parentDirName = path.basename(path.dirname(filePath));
+
+    // SxxExx patterns (single and multi)
     if (RegExp(r'S\d{1,2}E\d{1,2}', caseSensitive: false).hasMatch(fileName)) {
       return MediaType.tvShow;
     }
 
-    // Check for year patterns (19xx, 20xx) - indicates movies
+    // 3-digit patterns (single and multi)
+    if (RegExp(r'\b\d{3,4}\b').hasMatch(fileName)) {
+      final match = RegExp(r'\b(\d{1,2})(\d{2})\b').firstMatch(fileName);
+      if (match != null) {
+        final seasonNum = int.parse(match.group(1)!);
+        if (seasonNum > 0 && seasonNum < 50) {
+          return MediaType.tvShow;
+        }
+      }
+    }
+
+    // Season folder context
+    if (RegExp(
+      r'^(season\s*\d+|s\d+)$',
+      caseSensitive: false,
+    ).hasMatch(parentDirName)) {
+      // Check for numbered files inside
+      if (RegExp(r'^\d{1,3}([-_]\d{1,3})?$').hasMatch(fileName)) {
+        return MediaType.tvShow;
+      }
+    }
+
+    // Movie pattern
     if (RegExp(r'\b(19|20)\d{2}\b').hasMatch(fileName)) {
       return MediaType.movie;
     }
 
-    // Default to unknown
     return MediaType.unknown;
   }
 

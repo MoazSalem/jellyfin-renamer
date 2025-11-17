@@ -80,11 +80,14 @@ class InteractivePrompt {
 
     for (final file in files) {
       final fileName = path.basename(file.path);
-      final episode = _extractEpisodeInfo(file.path);
+      final episode = file.episode;
       if (episode != null) {
+        var episodeString = 'Episode ${episode.episodeNumberStart}';
+        if (episode.episodeNumberEnd != null) {
+          episodeString += '-${episode.episodeNumberEnd}';
+        }
         _stdout.writeln(
-          '  • $fileName → Season ${episode.seasonNumber}, '
-          'Episode ${episode.episodeNumber}',
+          '  • $fileName → Season ${episode.seasonNumber}, $episodeString',
         );
       } else {
         _stdout.writeln('  • $fileName → Could not parse episode info');
@@ -121,20 +124,6 @@ class InteractivePrompt {
     }
 
     _stdout.writeln('Invalid choice, skipping...');
-    return null;
-  }
-
-  Episode? _extractEpisodeInfo(String filePath) {
-    final fileName = path.basenameWithoutExtension(filePath);
-    final episodeMatch = RegExp(
-      r'S(\d{1,2})E(\d{1,2})',
-      caseSensitive: false,
-    ).firstMatch(fileName);
-    if (episodeMatch != null) {
-      final seasonNum = int.parse(episodeMatch.group(1)!);
-      final episodeNum = int.parse(episodeMatch.group(2)!);
-      return Episode(seasonNumber: seasonNum, episodeNumber: episodeNum);
-    }
     return null;
   }
 

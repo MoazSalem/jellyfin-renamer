@@ -10,16 +10,16 @@ import 'package:renamer/utils/logger.dart' as app_logger;
 /// Command for scanning directories to detect media files and their types.
 class ScanCommand extends Command<void> {
   /// Creates a new scan command instance.
-  ScanCommand() {
-    argParser
-      ..addOption(
-        'path',
-        abbr: 'p',
-        help: 'Root directory to scan',
-        mandatory: true,
-      )
-      ..addFlag('verbose', abbr: 'v', help: 'Show detailed output');
+  ScanCommand(this._logger) {
+    argParser.addOption(
+      'path',
+      abbr: 'p',
+      help: 'Root directory to scan',
+      mandatory: true,
+    );
   }
+
+  final app_logger.AppLogger _logger;
 
   @override
   final name = 'scan';
@@ -29,27 +29,25 @@ class ScanCommand extends Command<void> {
   @override
   Future<void> run() async {
     final path = argResults?['path'] as String;
-    final verbose = argResults?['verbose'] as bool? ?? false;
 
-    final scanner = MediaScanner();
-    final logger = app_logger.AppLogger(verbose: verbose)
-      ..info('Scanning directory: $path');
+    final scanner = MediaScanner(logger: _logger);
+    _logger.info('Scanning directory: $path');
 
     try {
       final items = await scanner.scanDirectory(path);
 
-      logger.info('Found $items.length media items:');
+      _logger.info('Found ${items.length} media items:');
       for (final item in items) {
-        logger.info('  ${item.type}: ${item.path}');
+        _logger.info('  ${item.type}: ${item.path}');
         if (item.subtitlePaths.isNotEmpty) {
-          logger.info('    Subtitles: ${item.subtitlePaths.length}');
+          _logger.info('    Subtitles: ${item.subtitlePaths.length}');
           for (final subtitlePath in item.subtitlePaths) {
-            logger.info('      $subtitlePath');
+            _logger.info('      $subtitlePath');
           }
         }
       }
     } on Object catch (e) {
-      logger.error('Scan failed: $e');
+      _logger.error('Scan failed: $e');
       exit(1);
     }
   }
@@ -58,7 +56,7 @@ class ScanCommand extends Command<void> {
 /// Command for renaming media files to comply with Jellyfin naming conventions.
 class RenameCommand extends Command<void> {
   /// Creates a new rename command instance.
-  RenameCommand() {
+  RenameCommand(this._logger) {
     argParser
       ..addOption(
         'path',
@@ -82,9 +80,10 @@ class RenameCommand extends Command<void> {
         abbr: 'l',
         help: 'Path to undo log file',
         defaultsTo: 'rename_log.json',
-      )
-      ..addFlag('verbose', abbr: 'v', help: 'Show detailed output');
+      );
   }
+
+  final app_logger.AppLogger _logger;
 
   @override
   final name = 'rename';
@@ -97,7 +96,6 @@ class RenameCommand extends Command<void> {
     final dryRun = argResults?['dry-run'] as bool? ?? false;
     final interactive = argResults?['interactive'] as bool? ?? true;
     var logPath = argResults?['log'] as String? ?? 'rename_log.json';
-    final verbose = argResults?['verbose'] as bool? ?? false;
 
     // If using default log path,
     // place it in the parent directory of the scan path
@@ -105,19 +103,18 @@ class RenameCommand extends Command<void> {
       logPath = p.join(p.dirname(p.dirname(path)), 'rename_log.json');
     }
 
-    final logger = app_logger.AppLogger(verbose: verbose);
-    final scanner = MediaScanner();
-    final renamer = MediaRenamer(logger: logger);
+    final scanner = MediaScanner(logger: _logger);
+    final renamer = MediaRenamer(logger: _logger);
 
     if (dryRun) {
-      logger.info('DRY RUN MODE - No files will be modified');
+      _logger.info('DRY RUN MODE - No files will be modified');
     }
 
     try {
-      logger.info('Scanning directory: $path');
+      _logger.info('Scanning directory: $path');
       final items = await scanner.scanDirectory(path);
 
-      logger.info('Processing ${items.length} media items...');
+      _logger.info('Processing ${items.length} media items...');
 
       try {
         await renamer.processItems(
@@ -126,18 +123,18 @@ class RenameCommand extends Command<void> {
           dryRun: dryRun,
           interactive: interactive,
         );
-        logger.info('All items processed successfully');
+        _logger.info('All items processed successfully');
       } on Object catch (e) {
-        logger.error('Failed to process items: $e');
+        _logger.error('Failed to process items: $e');
         exit(1);
       }
 
-      logger.info(
+      _logger.info(
         'Processing complete. ${dryRun ? "Use --dry-run=false "
                   "to apply changes." : ""}',
       );
     } on Object catch (e) {
-      logger.error('Rename operation failed: $e');
+      _logger.error('Rename operation failed: $e');
       exit(1);
     }
   }
@@ -146,7 +143,7 @@ class RenameCommand extends Command<void> {
 /// Command for undoing previous rename operations.
 class UndoCommand extends Command<void> {
   /// Creates a new undo command instance.
-  UndoCommand() {
+  UndoCommand(this._logger) {
     argParser
       ..addOption(
         'log',
@@ -158,9 +155,10 @@ class UndoCommand extends Command<void> {
         'preview',
         abbr: 'p',
         help: 'Show what will be undone without applying',
-      )
-      ..addFlag('verbose', abbr: 'v', help: 'Show detailed output');
+      );
   }
+
+  final app_logger.AppLogger _logger;
 
   @override
   final name = 'undo';
@@ -171,26 +169,24 @@ class UndoCommand extends Command<void> {
   Future<void> run() async {
     final logPath = argResults?['log'] as String? ?? 'rename_log.json';
     final preview = argResults?['preview'] as bool? ?? false;
-    final verbose = argResults?['verbose'] as bool? ?? false;
 
-    final logger = app_logger.AppLogger(verbose: verbose);
-    final undoLogger = UndoLogger(logPath, logger: logger);
+    final undoLogger = UndoLogger(logPath, logger: _logger);
 
     try {
       if (preview) {
-        logger.info('Previewing undo operations from: $logPath');
+        _logger.info('Previewing undo operations from: $logPath');
         final operations = await undoLogger.getLoggedOperations();
-        logger.info('Found ${operations.length} operations to undo:');
+        _logger.info('Found ${operations.length} operations to undo:');
         for (final op in operations) {
-          logger.info('  ${op.newPath} -> ${op.originalPath}');
+          _logger.info('  ${op.newPath} -> ${op.originalPath}');
         }
       } else {
-        logger.info('Undoing operations from: $logPath');
+        _logger.info('Undoing operations from: $logPath');
         await undoLogger.undo();
-        logger.info('Undo complete.');
+        _logger.info('Undo complete.');
       }
     } on Object catch (e) {
-      logger.error('Undo failed: $e');
+      _logger.error('Undo failed: $e');
       exit(1);
     }
   }

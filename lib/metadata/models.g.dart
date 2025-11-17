@@ -22,12 +22,12 @@ Map<String, dynamic> _$MovieToJson(Movie instance) => <String, dynamic>{
 
 TvShow _$TvShowFromJson(Map<String, dynamic> json) => TvShow(
   title: json['title'] as String,
-  year: (json['year'] as num?)?.toInt(),
-  tvdbId: json['tvdbId'] as String?,
-  tmdbId: json['tmdbId'] as String?,
   seasons: (json['seasons'] as List<dynamic>)
       .map((e) => Season.fromJson(e as Map<String, dynamic>))
       .toList(),
+  year: (json['year'] as num?)?.toInt(),
+  tvdbId: json['tvdbId'] as String?,
+  tmdbId: json['tmdbId'] as String?,
 );
 
 Map<String, dynamic> _$TvShowToJson(TvShow instance) => <String, dynamic>{
@@ -52,13 +52,15 @@ Map<String, dynamic> _$SeasonToJson(Season instance) => <String, dynamic>{
 
 Episode _$EpisodeFromJson(Map<String, dynamic> json) => Episode(
   seasonNumber: (json['seasonNumber'] as num).toInt(),
-  episodeNumber: (json['episodeNumber'] as num).toInt(),
+  episodeNumberStart: (json['episodeNumberStart'] as num).toInt(),
+  episodeNumberEnd: (json['episodeNumberEnd'] as num?)?.toInt(),
   title: json['title'] as String?,
 );
 
 Map<String, dynamic> _$EpisodeToJson(Episode instance) => <String, dynamic>{
   'seasonNumber': instance.seasonNumber,
-  'episodeNumber': instance.episodeNumber,
+  'episodeNumberStart': instance.episodeNumberStart,
+  'episodeNumberEnd': instance.episodeNumberEnd,
   'title': instance.title,
 };
 

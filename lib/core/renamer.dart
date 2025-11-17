@@ -291,7 +291,7 @@ class MediaRenamer {
         <String, List<String>>{}; // video path -> subtitle paths
 
     for (final item in showItems) {
-      final episodeInfo = _extractEpisodeInfo(item.path);
+      final episodeInfo = item.episode;
       if (episodeInfo != null) {
         seasonsMap
             .putIfAbsent(episodeInfo.seasonNumber, () => [])
@@ -541,19 +541,5 @@ class MediaRenamer {
     final fileName = path.basenameWithoutExtension(filePath);
     // Remove common patterns and return the base name
     return fileName.split(RegExp(r'[.\-\s]+'))[0];
-  }
-
-  Episode? _extractEpisodeInfo(String filePath) {
-    final fileName = path.basenameWithoutExtension(filePath);
-    final episodeMatch = RegExp(
-      r'S(\d{1,2})E(\d{1,2})',
-      caseSensitive: false,
-    ).firstMatch(fileName);
-    if (episodeMatch != null) {
-      final seasonNum = int.parse(episodeMatch.group(1)!);
-      final episodeNum = int.parse(episodeMatch.group(2)!);
-      return Episode(seasonNumber: seasonNum, episodeNumber: episodeNum);
-    }
-    return null;
   }
 }

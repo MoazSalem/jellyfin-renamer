@@ -23,12 +23,14 @@ class MediaItem {
   /// [detectedTitle] - Optional title detected from filename
   /// [detectedYear] - Optional year detected from filename
   /// [subtitlePaths] - Optional list of associated subtitle file paths
+  /// [episode] - Optional episode information if the media is a TV show
   MediaItem({
     required this.path,
     required this.type,
     this.detectedTitle,
     this.detectedYear,
     List<String>? subtitlePaths,
+    this.episode,
   }) : subtitlePaths = subtitlePaths ?? [];
 
   /// The file system path to the media file.
@@ -45,6 +47,28 @@ class MediaItem {
 
   /// List of paths to subtitle files associated with this media file.
   final List<String> subtitlePaths;
+
+  /// Episode information, if the media item is a TV show episode.
+  final Episode? episode;
+
+  /// Creates a copy of this [MediaItem] with the given fields replaced.
+  MediaItem copyWith({
+    String? path,
+    MediaType? type,
+    String? detectedTitle,
+    int? detectedYear,
+    List<String>? subtitlePaths,
+    Episode? episode,
+  }) {
+    return MediaItem(
+      path: path ?? this.path,
+      type: type ?? this.type,
+      detectedTitle: detectedTitle ?? this.detectedTitle,
+      detectedYear: detectedYear ?? this.detectedYear,
+      subtitlePaths: subtitlePaths ?? this.subtitlePaths,
+      episode: episode ?? this.episode,
+    );
+  }
 }
 
 /// Represents a movie with its metadata.
@@ -169,11 +193,13 @@ class Episode {
   /// Creates a new episode instance.
   ///
   /// [seasonNumber] - The season number
-  /// [episodeNumber] - The episode number within the season
+  /// [episodeNumberStart] - The starting episode number
+  /// [episodeNumberEnd] - The ending episode number, for multi-episode files
   /// [title] - Optional episode title
   Episode({
     required this.seasonNumber,
-    required this.episodeNumber,
+    required this.episodeNumberStart,
+    this.episodeNumberEnd,
     this.title,
   });
 
@@ -184,8 +210,11 @@ class Episode {
   /// The season number this episode belongs to.
   final int seasonNumber;
 
-  /// The episode number within the season.
-  final int episodeNumber;
+  /// The starting episode number within the season.
+  final int episodeNumberStart;
+
+  /// The ending episode number for multi-episode files.
+  final int? episodeNumberEnd;
 
   /// The title of the episode, if known.
   final String? title;
@@ -193,10 +222,17 @@ class Episode {
   /// Converts this episode to a JSON map.
   Map<String, dynamic> toJson() => _$EpisodeToJson(this);
 
-  /// Returns the episode code in SxxExx format (e.g., "S01E05").
-  String get episodeCode =>
-      'S${seasonNumber.toString().padLeft(2, '0')}'
-      'E${episodeNumber.toString().padLeft(2, '0')}';
+  /// Returns the episode code in SxxExx format
+  /// (e.g., "S01E05" or "S01E05-E06").
+  String get episodeCode {
+    final seasonStr = 'S${seasonNumber.toString().padLeft(2, '0')}';
+    final episodeStartStr = 'E${episodeNumberStart.toString().padLeft(2, '0')}';
+    if (episodeNumberEnd != null) {
+      final episodeEndStr = 'E${episodeNumberEnd!.toString().padLeft(2, '0')}';
+      return '$seasonStr$episodeStartStr-$episodeEndStr';
+    }
+    return '$seasonStr$episodeStartStr';
+  }
 }
 
 /// Represents a rename operation with timestamp for undo functionality.
