@@ -122,6 +122,7 @@ class RenameCommand extends Command<void> {
       try {
         await renamer.processItems(
           items,
+          scanRoot: path,
           dryRun: dryRun,
           interactive: interactive,
         );

@@ -34,6 +34,8 @@ class MediaRenamer {
   String? _tvFolderName;
   final List<RenameOperation> _plannedOperations = [];
   final Map<String, UndoLogger> _loggers = {};
+  late String? _scanRoot;
+  bool _isSingleShowScan = false;
 
   /// Processes a list of media items,
   /// renaming them according to Jellyfin conventions.
@@ -42,9 +44,11 @@ class MediaRenamer {
   /// [interactive] - If true, prompts user for confirmation and metadata input
   Future<void> processItems(
     List<MediaItem> items, {
+    required String scanRoot,
     bool dryRun = false,
     bool interactive = true,
   }) async {
+    _scanRoot = scanRoot;
     _plannedOperations.clear();
 
     // Group items by type
@@ -61,6 +65,16 @@ class MediaRenamer {
           // Skip unknown types
           break;
       }
+    }
+
+    // Detect if this is a single show scan
+    final allTvShowGuesses = _grouper.groupShows(tvShowItems).keys;
+    if (movies.isEmpty && allTvShowGuesses.length == 1) {
+      _isSingleShowScan = true;
+    } else if (tvShowItems.isEmpty && movies.length == 1) {
+      _isSingleShowScan = true;
+    } else {
+      _isSingleShowScan = false;
     }
 
     // Prompt for TV folder name if interactive and there are TV shows
@@ -150,10 +164,37 @@ class MediaRenamer {
   /// [interactive] - If true, prompts user for confirmation and metadata input
   Future<void> processItem(
     MediaItem item, {
+    required String scanRoot,
     bool dryRun = false,
     bool interactive = true,
   }) async {
-    await processItems([item], dryRun: dryRun, interactive: interactive);
+    await processItems(
+      [item],
+      scanRoot: scanRoot,
+      dryRun: dryRun,
+      interactive: interactive,
+    );
+  }
+
+  String _getOutputBaseDirectory() {
+    if (_isSingleShowScan) {
+      return path.dirname(_scanRoot!);
+    } else {
+      return _scanRoot!;
+    }
+  }
+
+  String _getTargetDirectory(String mediaType) {
+    final baseDir = _getOutputBaseDirectory();
+
+    if (mediaType == 'TV Shows') {
+      final folderName = _tvFolderName ?? 'TV Shows';
+      if (folderName.isEmpty) {
+        return baseDir;
+      }
+      return path.join(baseDir, folderName);
+    }
+    return path.join(baseDir, mediaType);
   }
 
   Future<void> _processMovie(
@@ -195,7 +236,7 @@ class MediaRenamer {
       confirmedMovie = promptedMovie;
     }
 
-    final targetDir = _getTargetDirectory(item.path, 'Movies');
+    final targetDir = _getTargetDirectory('Movies');
     _planRenameMovie(confirmedMovie, item.path, targetDir, item.subtitlePaths);
   }
 
@@ -270,7 +311,7 @@ class MediaRenamer {
       seasons: seasons,
     );
 
-    final targetDir = _getTargetDirectory(showItems.first.path, 'TV Shows');
+    final targetDir = _getTargetDirectory('TV Shows');
     _planRenameTvShowGroup(show, fileEpisodeMap, episodeSubtitleMap, targetDir);
   }
 
@@ -494,23 +535,6 @@ class MediaRenamer {
         );
       }
     }
-  }
-
-  String _getTargetDirectory(String sourcePath, String mediaType) {
-    // For now, create media type subdirectory in the same parent directory
-    // In a full implementation, this could be configurable
-    final parentDir = path.dirname(path.dirname(sourcePath));
-
-    // For TV shows, use the configured folder name or skip if empty
-    if (mediaType == 'TV Shows') {
-      final folderName = _tvFolderName ?? 'TV Shows';
-      if (folderName.isEmpty) {
-        return parentDir; // Skip the TV Shows folder
-      }
-      return path.join(parentDir, folderName);
-    }
-
-    return path.join(parentDir, mediaType);
   }
 
   String _extractTitleFromPath(String filePath) {
