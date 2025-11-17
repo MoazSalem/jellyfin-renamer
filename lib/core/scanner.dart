@@ -209,7 +209,7 @@ class MediaScanner {
       // Extract episode info if it's a TV show
       Episode? episode;
       if (mediaType == MediaType.tvShow) {
-        episode = _extractEpisodeInfo(filePath);
+        episode = extractEpisodeInfo(filePath);
       }
 
       return MediaItem(
@@ -225,7 +225,7 @@ class MediaScanner {
     }
   }
 
-  Episode? _extractEpisodeInfo(String filePath) {
+  Episode? extractEpisodeInfo(String filePath) {
     _logger.debug('_extractEpisodeInfo called for filePath: $filePath');
     final fileName = path.basenameWithoutExtension(filePath);
     final parentDirName = path.basename(path.dirname(filePath));
@@ -285,11 +285,16 @@ class MediaScanner {
       r'\b(\d{1,2})(\d{2})\b',
     ).firstMatch(fileName);
     if (threeDigitMatch != null) {
-      _logger.debug('Matched 3-digit single episode pattern.');
-      final seasonNum = int.parse(threeDigitMatch.group(1)!);
-      final episodeNum = int.parse(threeDigitMatch.group(2)!);
-      if (seasonNum > 0 && seasonNum < 50 && episodeNum > 0) {
-        return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
+      _logger.debug('Matched 3-digit single episode pattern: ${threeDigitMatch.group(0)}');
+      final potentialYear = int.tryParse(threeDigitMatch.group(0)!);
+      if (potentialYear != null && potentialYear >= 1900 && potentialYear <= DateTime.now().year + 1) {
+        _logger.debug('Ignoring potential year match: $potentialYear');
+      } else {
+        final seasonNum = int.parse(threeDigitMatch.group(1)!);
+        final episodeNum = int.parse(threeDigitMatch.group(2)!);
+        if (seasonNum > 0 && seasonNum < 50 && episodeNum > 0) {
+          return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
+        }
       }
     }
 
