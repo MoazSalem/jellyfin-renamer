@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as path;
-import 'package:renamer/config/file_extensions.dart';
+import 'package:renamer/core/grouper.dart';
 import 'package:renamer/core/undo.dart';
 import 'package:renamer/metadata/interactive.dart';
 import 'package:renamer/metadata/models.dart';
@@ -30,6 +30,7 @@ class MediaRenamer {
     : _logger = logger ?? app_logger.AppLogger();
   final InteractivePrompt _interactive = InteractivePrompt();
   final app_logger.AppLogger _logger;
+  final TvShowGrouper _grouper = TvShowGrouper();
   String? _tvFolderName;
   final List<RenameOperation> _plannedOperations = [];
   final Map<String, UndoLogger> _loggers = {};
@@ -67,37 +68,64 @@ class MediaRenamer {
       _tvFolderName = await _interactive.promptTvFolderName();
     }
 
-    // Process movies individually (usually one per folder)
+    // Process movies individually
     for (final movie in movies) {
       await _processMovie(movie, dryRun: dryRun, interactive: interactive);
     }
 
-    // Group TV show items by directory structure
+    // Group and process TV shows
     if (tvShowItems.isNotEmpty) {
-      final groupedByDirectory = <String, List<MediaItem>>{};
+      final groupedShows = _grouper.groupShows(tvShowItems);
 
-      for (final item in tvShowItems) {
-        // Group by the directory containing the episode files
-        final itemDir = path.dirname(item.path);
-        final itemDirName = path.basename(itemDir);
+      for (final entry in groupedShows.entries) {
+        final directoryGroupsWithOriginalNames =
+            entry.value; // List of ({originalShowName, items})
 
-        // If it's a season directory (S01, Season 1, etc.),
-        // group by parent directory
-        final isSeasonDir =
-            itemDirName.toLowerCase().startsWith('season') ||
-            RegExp(r'^s\d+$', caseSensitive: false).hasMatch(itemDirName);
-        final groupKey = isSeasonDir ? path.dirname(itemDir) : itemDir;
+        // Extract the original casing show name for display in prompts
+        final displayShowName =
+            directoryGroupsWithOriginalNames.first.originalShowName;
 
-        groupedByDirectory.putIfAbsent(groupKey, () => []).add(item);
-      }
-
-      // Process each directory group
-      for (final group in groupedByDirectory.values) {
-        await _processTvShowGroupFromItems(
-          group,
-          dryRun: dryRun,
-          interactive: interactive,
-        );
+        if (directoryGroupsWithOriginalNames.length > 1 && interactive) {
+          final confirmed = await _interactive.confirmGroup(
+            displayShowName, // Use original casing for display
+            directoryGroupsWithOriginalNames
+                .map((e) => e.items)
+                .toList(), // Pass only the items for display
+          );
+          if (confirmed) {
+            final allItems = directoryGroupsWithOriginalNames
+                .expand((e) => e.items)
+                .toList();
+            await _processTvShowGroupFromItems(
+              allItems,
+              showNameGuess: displayShowName, // Pass original casing
+              dryRun: dryRun,
+              interactive: interactive,
+            );
+          } else {
+            // Process each directory group separately
+            for (final groupWithOriginalName
+                in directoryGroupsWithOriginalNames) {
+              await _processTvShowGroupFromItems(
+                groupWithOriginalName.items,
+                showNameGuess: groupWithOriginalName
+                    .originalShowName, // Pass original casing
+                dryRun: dryRun,
+                interactive: interactive,
+              );
+            }
+          }
+        } else {
+          // Process single directory group
+          final groupWithOriginalName = directoryGroupsWithOriginalNames.first;
+          await _processTvShowGroupFromItems(
+            groupWithOriginalName.items,
+            showNameGuess:
+                groupWithOriginalName.originalShowName, // Pass original casing
+            dryRun: dryRun,
+            interactive: interactive,
+          );
+        }
       }
     }
 
@@ -173,39 +201,46 @@ class MediaRenamer {
 
   Future<void> _processTvShowGroupFromItems(
     List<MediaItem> showItems, {
-    String? showName,
+    String? showNameGuess,
     bool dryRun = false,
     bool interactive = true,
   }) async {
     if (showItems.isEmpty) return;
 
-    // Prioritize show name from parent directory
-    final itemDir = path.dirname(showItems.first.path);
-    final itemDirName = path.basename(itemDir);
-    final isSeasonDir =
-        itemDirName.toLowerCase().startsWith('season') ||
-        RegExp(r'^s\d+$', caseSensitive: false).hasMatch(itemDirName);
-    final showDir = isSeasonDir ? path.dirname(itemDir) : itemDir;
-    final parsedDir = _parseShowNameFromText(path.basename(showDir));
-    var finalShowName = parsedDir.title.isNotEmpty
-        ? parsedDir.title
-        : (showName ?? _extractShowNameFromItem(showItems.first));
-    var finalYear = parsedDir.year ?? showItems.first.detectedYear;
+    // Gather show name candidates
+    final candidates = <({String? title, int? year})>[];
+    if (showNameGuess != null) {
+      candidates.add((title: showNameGuess, year: null));
+    }
+    final firstItem = showItems.first;
+    final extractedFromFile = TitleProcessor.extractTitleUntilKeywords(
+      path.basename(firstItem.path),
+    );
+    if (extractedFromFile.title != null) {
+      candidates.add(extractedFromFile);
+    }
+    final dirName = path.basename(path.dirname(firstItem.path));
+    final extractedFromDir = TitleProcessor.extractTitleUntilKeywords(dirName);
+    if (extractedFromDir.title != null) {
+      candidates.add(extractedFromDir);
+    }
 
-    // Check if show name looks reasonable, prompt for better extraction if not
-    if (interactive && !TitleProcessor.isTitleReasonable(finalShowName)) {
-      final fileName = path.basename(showItems.first.path);
-      final extractionResult = await _interactive.promptTitleExtraction(
-        fileName,
-        finalShowName,
+    // Remove duplicates
+    final uniqueCandidates = candidates.toSet().toList();
+
+    var finalShowName =
+        showNameGuess ?? _extractShowNameFromItem(showItems.first);
+    var finalYear = showItems.first.detectedYear;
+
+    // If interactive, allow user to confirm/correct the show name
+    if (interactive) {
+      final confirmedShow = await _interactive.promptShowSelectionWithFiles(
+        uniqueCandidates,
+        showItems,
       );
-      if (extractionResult == null) return; // User skipped
-      if (extractionResult.title != null) {
-        finalShowName = extractionResult.title!;
-      }
-      if (extractionResult.year != null) {
-        finalYear = extractionResult.year;
-      }
+      if (confirmedShow == null) return; // User skipped
+      finalShowName = confirmedShow.title;
+      finalYear = confirmedShow.year;
     }
 
     // Extract all season/episode info from all files
@@ -229,74 +264,14 @@ class MediaRenamer {
         .map((e) => Season(number: e.key, episodes: e.value))
         .toList();
 
-    var show = TvShow(
+    final show = TvShow(
       title: finalShowName,
       year: finalYear,
       seasons: seasons,
     );
 
-    if (interactive) {
-      final fullName = path.basename(showDir);
-      final confirmedShow = await _interactive.promptTvShowDetailsWithFiles(
-        show,
-        showItems,
-        fullName: fullName,
-      );
-      if (confirmedShow == null) return;
-      show = confirmedShow;
-    }
-
     final targetDir = _getTargetDirectory(showItems.first.path, 'TV Shows');
     _planRenameTvShowGroup(show, fileEpisodeMap, episodeSubtitleMap, targetDir);
-  }
-
-  ({String title, int? year}) _parseShowNameFromText(String text) {
-    // Clean up the text
-    var cleanText = text
-        .replaceAll('.', ' ')
-        .replaceAll('_', ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-
-    // Remove season information
-    cleanText = cleanText
-        .replaceAll(RegExp(r'\bseason\s*\d+\b', caseSensitive: false), '')
-        .trim();
-    cleanText = cleanText
-        .replaceAll(RegExp(r'\bs\d+\b', caseSensitive: false), '')
-        .trim();
-
-    // Remove common release info
-    for (final tag in filenameFilterWords) {
-      cleanText = cleanText
-          .replaceAll(
-            RegExp(r'\b' + RegExp.escape(tag) + r'\b', caseSensitive: false),
-            '',
-          )
-          .trim();
-    }
-    cleanText = cleanText.replaceAll(RegExp(r'\s+'), ' ').trim();
-
-    // Clean up trailing separators (like " - ", " -", "- ")
-    cleanText = cleanText.replaceAll(RegExp(r'\s*-\s*$'), '').trim();
-    cleanText = cleanText.replaceAll(RegExp(r'\s+'), ' ').trim();
-
-    // Try to extract year in parentheses (common in directory names)
-    final parenYearMatch = RegExp(r'\((\d{4})\)$').firstMatch(cleanText);
-    int? year;
-    if (parenYearMatch != null) {
-      year = int.tryParse(parenYearMatch.group(1)!);
-      cleanText = cleanText.replaceFirst(parenYearMatch.group(0)!, '').trim();
-    } else {
-      // Try to extract year without parentheses
-      final yearMatch = RegExp(r'\b(19|20)\d{2}\b').firstMatch(cleanText);
-      if (yearMatch != null) {
-        year = int.tryParse(yearMatch.group(0)!);
-        cleanText = cleanText.replaceFirst(yearMatch.group(0)!, '').trim();
-      }
-    }
-
-    return (title: cleanText, year: year);
   }
 
   String _extractShowNameFromItem(MediaItem item) {

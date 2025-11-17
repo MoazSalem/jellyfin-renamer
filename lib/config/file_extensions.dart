@@ -87,7 +87,6 @@ const List<String> filenameFilterWords = [
   // Additional terms from real filenames
   'dd5.1',
   'dd5 1',
-  'with',
   'commentary',
   'poiasd',
   'galaxytv',

@@ -71,12 +71,11 @@ class InteractivePrompt {
   /// [files] - List of media files to be processed
   /// Returns the selected TV show or null if user chooses to skip.
   Future<TvShow?> promptShowSelectionWithFiles(
-    List<({String title, int? year})> showCandidates,
+    List<({String? title, int? year})> showCandidates,
     List<MediaItem> files,
   ) async {
     _stdout.writeln(
-      '\n📺 Found ${files.length} episode files in directory: '
-      '${path.dirname(files.first.path)}',
+      '\n📺 Found ${files.length} episode files:',
     );
 
     for (final file in files) {
@@ -93,203 +92,32 @@ class InteractivePrompt {
     }
 
     _stdout.writeln('\nDetected show name options:');
-    for (var i = 0; i < showCandidates.length; i++) {
-      final candidate = showCandidates[i];
+    final validCandidates = showCandidates
+        .where((c) => c.title != null)
+        .toSet()
+        .toList();
+    for (var i = 0; i < validCandidates.length; i++) {
+      final candidate = validCandidates[i];
       final displayName = candidate.year != null
           ? '${candidate.title} (${candidate.year})'
           : candidate.title;
       _stdout.writeln('${i + 1}. $displayName');
     }
     _stdout
-      ..writeln('${showCandidates.length + 1}. Enter different show name')
-      ..writeln('${showCandidates.length + 2}. Skip these files')
+      ..writeln('${validCandidates.length + 1}. Enter different show name')
+      ..writeln('${validCandidates.length + 2}. Skip these files')
       ..write('Select option: ');
 
     final input = _readLine().trim();
     final choice = int.tryParse(input);
 
-    if (choice != null && choice > 0 && choice <= showCandidates.length) {
-      final selected = showCandidates[choice - 1];
-      return TvShow(title: selected.title, year: selected.year, seasons: []);
-    } else if (choice == showCandidates.length + 1) {
+    if (choice != null && choice > 0 && choice <= validCandidates.length) {
+      final selected = validCandidates[choice - 1];
+      return TvShow(title: selected.title!, year: selected.year, seasons: []);
+    } else if (choice == validCandidates.length + 1) {
       return _promptManualShowEntry();
-    } else if (choice == showCandidates.length + 2) {
+    } else if (choice == validCandidates.length + 2) {
       return null;
-    }
-
-    _stdout.writeln('Invalid choice, skipping...');
-    return null;
-  }
-
-  /// Prompts user to confirm or modify TV show details with file information.
-  ///
-  /// [detectedShow] - The automatically detected TV show
-  /// [files] - List of media files for context
-  /// [fullName] - Optional full directory name for display
-  /// Returns the confirmed TV show or null if user chooses to skip.
-  Future<TvShow?> promptTvShowDetailsWithFiles(
-    TvShow detectedShow,
-    List<MediaItem> files, {
-    String? fullName,
-  }) async {
-    _stdout
-      ..writeln('\n📺 Detected TV Show: ${detectedShow.title}')
-      ..writeln('Found ${files.length} episode files:');
-
-    for (final file in files) {
-      final fileName = path.basename(file.path);
-      final episode = _extractEpisodeInfo(file.path);
-      if (episode != null) {
-        _stdout.writeln(
-          '  • $fileName → Season ${episode.seasonNumber}, '
-          'Episode ${episode.episodeNumber}',
-        );
-      } else {
-        _stdout.writeln('  • $fileName → Could not parse episode info');
-      }
-    }
-
-    // Automatically extract title using keyword method from filename
-    final fileName = path.basename(files.first.path);
-    final extractedResult = TitleProcessor.extractTitleUntilKeywords(fileName);
-    final extractedTitle = extractedResult.title;
-
-    // Also extract from directory name if available
-    String? dirExtractedTitle;
-    if (fullName != null) {
-      final dirExtractedResult = TitleProcessor.extractTitleUntilKeywords(
-        fullName,
-      );
-      dirExtractedTitle = dirExtractedResult.title;
-    }
-
-    _stdout
-      ..writeln('\nOptions:')
-      ..writeln(
-        '1. Use detected show name: "${detectedShow.jellyfinName}"',
-      );
-
-    var optionCounter = 2;
-
-    if (extractedTitle != null && extractedTitle != detectedShow.title) {
-      _stdout.writeln(
-        '$optionCounter. Use extracted title from file: "$extractedTitle"',
-      );
-      optionCounter++;
-    }
-
-    if (dirExtractedTitle != null &&
-        dirExtractedTitle != detectedShow.title &&
-        dirExtractedTitle != extractedTitle) {
-      _stdout.writeln(
-        '$optionCounter. Use extracted title'
-        ' from directory: "$dirExtractedTitle"',
-      );
-      optionCounter++;
-    }
-
-    if (fullName != null && fullName != detectedShow.title) {
-      _stdout.writeln('$optionCounter. Use full directory name: "$fullName"');
-      optionCounter++;
-    }
-
-    _stdout
-      ..writeln('$optionCounter. Enter different show name')
-      ..writeln('${optionCounter + 1}. Skip these files')
-      ..write('Select option (1-${optionCounter + 1}): ');
-
-    final input = _readLine().trim();
-    final choice = int.tryParse(input);
-
-    var currentOption = 2;
-
-    if (choice == 1) {
-      return detectedShow;
-    }
-
-    // Check extracted title from file
-    if (extractedTitle != null && extractedTitle != detectedShow.title) {
-      if (choice == currentOption) {
-        return TvShow(
-          title: extractedTitle,
-          year: extractedResult.year ?? detectedShow.year,
-          seasons: detectedShow.seasons,
-        );
-      }
-      currentOption++;
-    }
-
-    // Check extracted title from directory
-    if (dirExtractedTitle != null &&
-        dirExtractedTitle != detectedShow.title &&
-        dirExtractedTitle != extractedTitle) {
-      if (choice == currentOption) {
-        // Find the year from directory extraction
-        final dirResult = TitleProcessor.extractTitleUntilKeywords(fullName!);
-        return TvShow(
-          title: dirExtractedTitle,
-          year: dirResult.year ?? detectedShow.year,
-          seasons: detectedShow.seasons,
-        );
-      }
-      currentOption++;
-    }
-
-    // Check full directory name
-    if (fullName != null && fullName != detectedShow.title) {
-      if (choice == currentOption) {
-        return TvShow(
-          title: fullName,
-          year: detectedShow.year,
-          seasons: detectedShow.seasons,
-        );
-      }
-      currentOption++;
-    }
-
-    // Manual entry
-    if (choice == currentOption) {
-      return _promptManualTvShowEntryWithEpisodes(
-        detectedShow.seasons,
-      );
-    }
-
-    // Skip
-    if (choice == currentOption + 1) {
-      return null;
-    }
-
-    _stdout.writeln('Invalid choice, skipping...');
-    return null;
-  }
-
-  /// Prompts user to select from TV show suggestions.
-  ///
-  /// [suggestions] - List of TV show suggestions to present to the user
-  /// Returns the selected TV show or null if user chooses to skip.
-  Future<TvShow?> promptTvShowDetails(List<TvShow> suggestions) async {
-    if (suggestions.isEmpty) {
-      return _promptManualTvShowEntry();
-    }
-
-    _stdout.writeln('Found TV show matches:');
-    for (var i = 0; i < suggestions.length; i++) {
-      _stdout.writeln('${i + 1}. ${suggestions[i].jellyfinName}');
-    }
-    _stdout
-      ..writeln('${suggestions.length + 1}. Enter manually')
-      ..writeln('${suggestions.length + 2}. Skip this file')
-      ..write('Select option: ');
-
-    final input = _readLine().trim();
-    final choice = int.tryParse(input);
-
-    if (choice != null && choice > 0 && choice <= suggestions.length) {
-      return suggestions[choice - 1];
-    } else if (choice == suggestions.length + 1) {
-      return _promptManualTvShowEntry();
-    } else if (choice == suggestions.length + 2) {
-      return null; // Skip
     }
 
     _stdout.writeln('Invalid choice, skipping...');
@@ -326,90 +154,6 @@ class InteractivePrompt {
       title: title,
       year: year,
       seasons: [], // Will be populated from files
-    );
-  }
-
-  Future<TvShow> _promptManualTvShowEntryWithEpisodes(
-    List<Season> detectedSeasons,
-  ) async {
-    _stdout.write('Enter TV show title: ');
-    final title = _readLine().trim();
-
-    if (title.isEmpty) {
-      throw Exception('Title cannot be empty');
-    }
-
-    _stdout.write('Enter year (optional): ');
-    final yearInput = _readLine().trim();
-    final year = yearInput.isNotEmpty ? int.tryParse(yearInput) : null;
-
-    // Use the detected seasons but allow user to modify
-    _stdout.writeln('Detected seasons and episodes:');
-    for (final season in detectedSeasons) {
-      _stdout.writeln(
-        '  Season ${season.number}: ${season.episodes.length} episodes',
-      );
-    }
-
-    _stdout.write('Use detected season/episode info? (y/n): ');
-    final useDetected = _readLine().trim().toLowerCase() == 'y';
-
-    if (!useDetected) {
-      _stdout.write('Enter season number: ');
-      final seasonInput = _readLine().trim();
-      final seasonNum = int.tryParse(seasonInput) ?? 1;
-
-      _stdout.write('Enter episode number: ');
-      final episodeInput = _readLine().trim();
-      final episodeNum = int.tryParse(episodeInput) ?? 1;
-
-      final episode = Episode(
-        seasonNumber: seasonNum,
-        episodeNumber: episodeNum,
-      );
-      final season = Season(number: seasonNum, episodes: [episode]);
-
-      return TvShow(
-        title: title,
-        year: year,
-        seasons: [season],
-      );
-    }
-
-    return TvShow(
-      title: title,
-      year: year,
-      seasons: detectedSeasons,
-    );
-  }
-
-  Future<TvShow> _promptManualTvShowEntry() async {
-    _stdout.write('Enter TV show title: ');
-    final title = _readLine().trim();
-
-    if (title.isEmpty) {
-      throw Exception('Title cannot be empty');
-    }
-
-    _stdout.write('Enter year (optional): ');
-    final yearInput = _readLine().trim();
-    final year = yearInput.isNotEmpty ? int.tryParse(yearInput) : null;
-
-    _stdout.write('Enter season number: ');
-    final seasonInput = _readLine().trim();
-    final seasonNum = int.tryParse(seasonInput) ?? 1;
-
-    _stdout.write('Enter episode number: ');
-    final episodeInput = _readLine().trim();
-    final episodeNum = int.tryParse(episodeInput) ?? 1;
-
-    final episode = Episode(seasonNumber: seasonNum, episodeNumber: episodeNum);
-    final season = Season(number: seasonNum, episodes: [episode]);
-
-    return TvShow(
-      title: title,
-      year: year,
-      seasons: [season],
     );
   }
 
@@ -510,6 +254,31 @@ class InteractivePrompt {
       _stdout.writeln('Invalid choice.');
       return null;
     }
+  }
+
+  /// Prompts user to confirm if a group of directories belong to the same show.
+  ///
+  /// [showNameGuess] - The guessed show name for the group.
+  /// [directoryGroups] - The list of directory paths grouped
+  /// under the show name.
+  /// Returns true if the user confirms, false otherwise.
+  Future<bool> confirmGroup(
+    String showNameGuess,
+    List<List<MediaItem>> directoryGroups,
+  ) async {
+    _stdout
+      ..writeln(
+        "\n🤔 I've found ${directoryGroups.length} directories that seem to"
+        ' belong to the same show: "$showNameGuess".',
+      )
+      ..writeln('Directories found:');
+    for (final group in directoryGroups) {
+      final dirPath = path.dirname(group.first.path);
+      _stdout.writeln('  - $dirPath');
+    }
+    _stdout.write('Are these directories for the same show? (y/n): ');
+    final input = _readLine().trim().toLowerCase();
+    return input == 'y' || input == 'yes';
   }
 
   /// Prompts user to confirm execution of the planned operations.

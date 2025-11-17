@@ -26,20 +26,20 @@ class TitleProcessor {
 
   /// Extracts title from filename using keyword-based stopping patterns.
   ///
-  /// Stops at the earliest occurrence of Season/SNN/year patterns.
+  /// Stops at the earliest occurrence of Season/SNN/year patterns or words from `filenameFilterWords`.
   static ({String? title, int? year}) extractTitleUntilKeywords(
     String fileName,
   ) {
     // Clean the filename first
     final cleanName = _cleanFilename(fileName);
 
-    // Find the earliest occurrence of keywords
-    // that indicate the end of the title
+    // Combine patterns and filter words
     final patterns = [
-      r'\bSeason\b', // "Season"
-      r'S\d{1,2}E\d{1,2}', // "S01E01", "S02E01", etc.
-      r'\bS\d{1,2}\b', // "S01", "S02", etc. (standalone)
-      r'\b(19|20)\d{2}\b', // years like 2021, 1995
+      r'\bSeason\b',
+      r'S\d{1,2}E\d{1,2}',
+      r'\bS\d{1,2}\b',
+      r'\b(19|20)\d{2}\b',
+      ...filenameFilterWords.map((word) => r'\b' + RegExp.escape(word) + r'\b'),
     ];
 
     var earliestEndIndex = cleanName.length;
@@ -67,8 +67,10 @@ class TitleProcessor {
           .trim();
     }
 
-    // Clean up dots used as separators
-    title = cleanTitleDots(title);
+    // Final cleanup of the extracted title
+    title = title
+        .replaceAll(RegExp(r'[\s._]+$'), '')
+        .trim(); // Remove trailing separators
 
     return (title: title.isNotEmpty ? title : null, year: year);
   }
@@ -103,9 +105,12 @@ class TitleProcessor {
 
     // Remove brackets and parentheses content
     cleanName = cleanName.replaceAll(
-      RegExp(r'[\[(].*?[\])]'),
+      RegExp(r'[\[({].*?[\])}]'),
       '',
     );
+
+    // Replace dots and underscores with spaces
+    cleanName = cleanName.replaceAll(RegExp(r'[._]'), ' ');
 
     // Clean up multiple spaces and normalize
     cleanName = cleanName.replaceAll(RegExp(r'\s+'), ' ').trim();
