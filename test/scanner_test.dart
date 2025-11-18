@@ -119,5 +119,21 @@ void main() {
       expect(result.episodeNumberStart, 0);
       expect(result.episodeNumberEnd, isNull);
     });
+
+    test('should parse "season one" format', () {
+      final result = scanner.extractEpisodeInfo('season one/01.mkv');
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 1);
+      expect(result.episodeNumberEnd, isNull);
+    });
+
+    test('should parse "first season" format', () {
+      final result = scanner.extractEpisodeInfo('first season/01.mkv');
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 1);
+      expect(result.episodeNumberEnd, isNull);
+    });
   });
 }

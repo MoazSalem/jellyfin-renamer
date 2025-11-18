@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as path;
 import 'package:renamer/config/file_extensions.dart';
+import 'package:renamer/config/season_words.dart';
 import 'package:renamer/metadata/models.dart';
 import 'package:renamer/utils/logger.dart' as app_logger;
 import 'package:renamer/utils/title_processor.dart';
@@ -15,6 +16,32 @@ class MediaScanner {
     : _logger = logger ?? app_logger.AppLogger();
 
   final app_logger.AppLogger _logger;
+
+  int? _extractSeasonFromParentDir(String parentDirName) {
+    final lowerParentDirName = parentDirName.toLowerCase();
+
+    final seasonMatch = RegExp(
+      r'(?:season\s*|s)(\d+)',
+      caseSensitive: false,
+    ).firstMatch(lowerParentDirName);
+    if (seasonMatch != null) {
+      return int.tryParse(seasonMatch.group(1)!);
+    }
+
+    for (final entry in wordToNumber.entries) {
+      if (lowerParentDirName.contains('season ${entry.key}')) {
+        return entry.value;
+      }
+    }
+
+    for (final entry in ordinalToNumber.entries) {
+      if (lowerParentDirName.contains('${entry.key} season')) {
+        return entry.value;
+      }
+    }
+
+    return null;
+  }
 
   /// Scans the specified directory recursively for media files.
   ///
@@ -295,15 +322,11 @@ class MediaScanner {
     }
 
     // Season Folder Context Patterns
-    final seasonDirMatch = RegExp(
-      r'^(?:season\s*|s)(\d+)',
-      caseSensitive: false,
-    ).firstMatch(parentDirName);
-    if (seasonDirMatch != null) {
+    final seasonNum = _extractSeasonFromParentDir(parentDirName);
+    if (seasonNum != null) {
       _logger.debug(
-        'Matched season in parent directory: ${seasonDirMatch.group(0)}',
+        'Matched season in parent directory: $parentDirName',
       );
-      final seasonNum = int.parse(seasonDirMatch.group(1)!);
 
       // Pattern 5a: 12-13
       final folderMultiMatch = RegExp(
@@ -341,12 +364,8 @@ class MediaScanner {
       final episodeNum = int.parse(ePatternMatch.group(1)!);
 
       // Try to get season from parent folder
-      final seasonDirMatch = RegExp(
-        r'^(?:season\s*|s)(\d+)',
-        caseSensitive: false,
-      ).firstMatch(parentDirName);
-      if (seasonDirMatch != null) {
-        final seasonNum = int.parse(seasonDirMatch.group(1)!);
+      final seasonNum = _extractSeasonFromParentDir(parentDirName);
+      if (seasonNum != null) {
         return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
       }
 
@@ -361,12 +380,8 @@ class MediaScanner {
     ).firstMatch(fileName);
     if (episodeWordMatch != null) {
       final episodeNum = int.parse(episodeWordMatch.group(1)!);
-      final seasonDirMatch = RegExp(
-        r'^(?:season\s*|s)(\d+)',
-        caseSensitive: false,
-      ).firstMatch(parentDirName);
-      if (seasonDirMatch != null) {
-        final seasonNum = int.parse(seasonDirMatch.group(1)!);
+      final seasonNum = _extractSeasonFromParentDir(parentDirName);
+      if (seasonNum != null) {
         return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
       }
       // Assume season 1 if not otherwise specified
@@ -394,10 +409,7 @@ class MediaScanner {
     }
 
     // 2. Season folder context (unambiguous TV)
-    if (RegExp(
-      r'^(season\s*\d+|s\d+)$',
-      caseSensitive: false,
-    ).hasMatch(parentDirName)) {
+    if (_extractSeasonFromParentDir(parentDirName) != null) {
       // Check for numbered files inside
       if (RegExp(r'^\d{1,3}([-_]\d{1,3})?$').hasMatch(fileName)) {
         return MediaType.tvShow;
