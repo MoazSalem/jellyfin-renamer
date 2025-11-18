@@ -43,3 +43,29 @@ const ordinalToNumber = {
   'nineteenth': 19,
   'twentieth': 20,
 };
+
+int? extractSeasonFromDirName(String dirName) {
+  final lowerDirName = dirName.toLowerCase();
+
+  final seasonMatch = RegExp(
+    r'^(?:season\s*|s)(\d+)$',
+    caseSensitive: false,
+  ).firstMatch(lowerDirName);
+  if (seasonMatch != null) {
+    return int.tryParse(seasonMatch.group(1)!);
+  }
+
+  for (final entry in wordToNumber.entries) {
+    if (lowerDirName == 'season ${entry.key}') {
+      return entry.value;
+    }
+  }
+
+  for (final entry in ordinalToNumber.entries) {
+    if (lowerDirName == '${entry.key} season') {
+      return entry.value;
+    }
+  }
+
+  return null;
+}

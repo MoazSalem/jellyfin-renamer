@@ -1,5 +1,6 @@
 import 'package:path/path.dart' as path;
 import 'package:renamer/metadata/models.dart';
+import 'package:renamer/utils/season_parser.dart';
 import 'package:renamer/utils/title_processor.dart';
 
 /// A Class to group tv shows by name
@@ -37,10 +38,7 @@ class TvShowGrouper {
 
   String _guessShowNameFromPath(String directoryPath) {
     final dirName = path.basename(directoryPath);
-    final isSeasonDir = RegExp(
-      r'^(season\s*\d+|s\d+)$',
-      caseSensitive: false,
-    ).hasMatch(dirName);
+    final isSeasonDir = extractSeasonFromDirName(dirName) != null;
 
     if (isSeasonDir) {
       final parentDir = path.dirname(directoryPath);
