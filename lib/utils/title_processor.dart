@@ -99,7 +99,7 @@ class TitleProcessor {
     );
 
     // Replace dots and underscores with spaces
-    cleanName = cleanName.replaceAll(RegExp(r'[._]'), ' ');
+    cleanName = cleanName.replaceAll(RegExp('[._]'), ' ');
 
     // Clean up multiple spaces and normalize
     cleanName = cleanName.replaceAll(RegExp(r'\s+'), ' ').trim();

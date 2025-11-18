@@ -1,3 +1,8 @@
+/// Mapping of cardinal number words to their numeric values.
+///
+/// Supports both English and Arabic number words
+/// (e.g., 'one' -> 1, 'واحد' -> 1).
+/// Used for parsing season names like "Season One" or "الموسم واحد".
 const wordToNumber = {
   'one': 1,
   'two': 2,
@@ -43,6 +48,11 @@ const wordToNumber = {
   'عشرين': 20,
 };
 
+/// Mapping of ordinal number words to their numeric values.
+///
+/// Supports both English and Arabic ordinal words
+/// (e.g., 'first' -> 1, 'الأول' -> 1).
+/// Used for parsing season names like "First Season" or "الموسم الأول".
 const ordinalToNumber = {
   'first': 1,
   'second': 2,
@@ -114,6 +124,22 @@ const ordinalToNumber = {
   'العشرين': 20,
 };
 
+/// Extracts the season number from a directory name.
+///
+/// Supports multiple formats:
+/// - Numeric: "Season 1", "S01", "الموسم 1"
+/// - Word-based: "Season One", "الموسم واحد"
+/// - Ordinal: "First Season", "الموسم الأول"
+///
+/// Returns the season number if found, or null if the directory name
+/// doesn't match any known season pattern.
+///
+/// Example:
+/// ```dart
+/// extractSeasonFromDirName('Season 1'); // Returns 1
+/// extractSeasonFromDirName('Season One'); // Returns 1
+/// extractSeasonFromDirName('Random Folder'); // Returns null
+/// ```
 int? extractSeasonFromDirName(String dirName) {
   final lowerDirName = dirName.toLowerCase();
 
