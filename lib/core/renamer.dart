@@ -217,8 +217,9 @@ class MediaRenamer {
     var confirmedMovie = movie;
     if (interactive) {
       // In interactive mode, prompt user to confirm/edit metadata
-      final promptedMovie =
-          await _interactive.promptMovieDetails(item, [movie]);
+      final promptedMovie = await _interactive.promptMovieDetails(item, [
+        movie,
+      ]);
       if (promptedMovie == null) return; // User cancelled
       confirmedMovie = promptedMovie;
     }

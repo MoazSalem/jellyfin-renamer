@@ -331,6 +331,48 @@ class MediaScanner {
     }
     _logger.debug('No season match in parent directory.');
 
+    // New pattern: eX or eXX
+    final ePatternMatch = RegExp(
+      r'\be(\d{1,2})\b',
+      caseSensitive: false,
+    ).firstMatch(fileName);
+    if (ePatternMatch != null) {
+      _logger.debug('Matched eX/eXX pattern.');
+      final episodeNum = int.parse(ePatternMatch.group(1)!);
+
+      // Try to get season from parent folder
+      final seasonDirMatch = RegExp(
+        r'^(?:season\s*|s)(\d+)',
+        caseSensitive: false,
+      ).firstMatch(parentDirName);
+      if (seasonDirMatch != null) {
+        final seasonNum = int.parse(seasonDirMatch.group(1)!);
+        return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
+      }
+
+      // If no season in folder, assume season 1
+      return Episode(seasonNumber: 1, episodeNumberStart: episodeNum);
+    }
+
+    // Fallback for "episode XX" format
+    final episodeWordMatch = RegExp(
+      r'episode\s*(\d+)',
+      caseSensitive: false,
+    ).firstMatch(fileName);
+    if (episodeWordMatch != null) {
+      final episodeNum = int.parse(episodeWordMatch.group(1)!);
+      final seasonDirMatch = RegExp(
+        r'^(?:season\s*|s)(\d+)',
+        caseSensitive: false,
+      ).firstMatch(parentDirName);
+      if (seasonDirMatch != null) {
+        final seasonNum = int.parse(seasonDirMatch.group(1)!);
+        return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
+      }
+      // Assume season 1 if not otherwise specified
+      return Episode(seasonNumber: 1, episodeNumberStart: episodeNum);
+    }
+
     return null;
   }
 
@@ -340,6 +382,14 @@ class MediaScanner {
 
     // 1. SxxExx patterns (unambiguous TV)
     if (RegExp(r'S\d{1,2}E\d{1,2}', caseSensitive: false).hasMatch(fileName)) {
+      return MediaType.tvShow;
+    }
+
+    if (RegExp(r'episode\s*\d{1,2}', caseSensitive: false).hasMatch(fileName)) {
+      return MediaType.tvShow;
+    }
+
+    if (RegExp(r'\be(\d{1,2})\b', caseSensitive: false).hasMatch(fileName)) {
       return MediaType.tvShow;
     }
 

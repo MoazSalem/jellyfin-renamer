@@ -66,7 +66,7 @@ void main() {
     });
 
     test('should return null for non-episode formats', () {
-      final result = scanner.extractEpisodeInfo('My.Movie.2023.mkv');
+      final result = scanner.extractEpisodeInfo('A normal file.mkv');
       expect(result, isNull);
     });
 
@@ -75,6 +75,40 @@ void main() {
       expect(result, isNotNull);
       expect(result!.seasonNumber, 2);
       expect(result.episodeNumberStart, 1);
+      expect(result.episodeNumberEnd, isNull);
+    });
+
+    test('should parse "episode 01" format', () {
+      final result = scanner.extractEpisodeInfo('My Show - episode 01.mkv');
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 1);
+      expect(result.episodeNumberEnd, isNull);
+    });
+
+    test('should parse "episode 01" format in season folder', () {
+      final result = scanner.extractEpisodeInfo(
+        'Season 2/My Show - episode 01.mkv',
+      );
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 2);
+      expect(result.episodeNumberStart, 1);
+      expect(result.episodeNumberEnd, isNull);
+    });
+
+    test('should parse "e3" format', () {
+      final result = scanner.extractEpisodeInfo('My Show - e3.mkv');
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 3);
+      expect(result.episodeNumberEnd, isNull);
+    });
+
+    test('should parse "e03" format in season folder', () {
+      final result = scanner.extractEpisodeInfo('Season 3/My Show - e03.mkv');
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 3);
+      expect(result.episodeNumberStart, 3);
       expect(result.episodeNumberEnd, isNull);
     });
   });
