@@ -2,12 +2,20 @@
 
 A command-line tool for renaming media libraries to comply with [Jellyfin's official naming conventions](https://jellyfin.org/docs/general/server/media/) for both TV Shows and Movies.
 
+<div align=center>
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/64b75703-a9a5-4552-af8f-152f423c0581" />
+</div>
+
+
 ## Features
 
+-   **Interactive Mode Enhancements**: Users can now edit detected metadata directly from interactive prompts by typing 'e' followed by the option number (e.g., 'e2' to edit the second option).
 -   **Advanced TV Show Detection**: Automatically detects episodes from a wide variety of filename and folder structures, including:
     -   Standard `SxxExx` format (`Show.S01E01.mkv`)
+    -   `episode xx` format (`Show.episode 01.mkv`)
+    -   `eX` or `eXX` format (`Show.e01.mkv`)
     -   Three-Digit format (`Show.101.mkv` for Season 1, Episode 1)
-    -   Folder-based numbering (`.../Season 1/01.mkv`)
+    -   Folder-based numbering (`.../Season 1/01.mkv`, `.../Season One/01.mkv`, `.../First Season/01.mkv`)
     -   Multi-Episode Files: Correctly parses and formats files containing multiple episodes from patterns like `S01E01-E02`, `101-102`, and `.../Season 1/01-02.mkv`.
 -   **Intelligent TV Show Grouping**:
     -   Scans and groups multiple directories belonging to the same show (e.g., `Breaking Bad (2008)` and `Breaking Bad Season 2`) into a single, streamlined renaming operation.
@@ -178,7 +186,7 @@ Example:
 
 The tool automatically detects media types based on filename patterns:
 
--   **TV Shows**: Files containing `S01E01`, `S02E05`, three-digit formats like `101` (S01E01), multi-episode formats like `S01E01-E02` or `101-102`, and numbered files within season folders.
+-   **TV Shows**: Files containing `S01E01`, `S02E05`, `episode xx` format, `eX/eXX` format, three-digit formats like `101` (S01E01), multi-episode formats like `S01E01-E02` or `101-102`, numbered files within season folders, and word-based season names (e.g., "Season One", "First Season").
 -   **Movies**: Files containing years (e.g., `2010`, `2023`)
 -   **Subtitles**: Files with extensions `.srt`, `.sub`, `.ass`, `.ssa`, `.vtt`
 -   **Unknown**: Files that don't match these patterns
@@ -192,6 +200,13 @@ Subtitle files are automatically associated with video files using intelligent m
 -   **Close name match**: `Movie.mkv` → `Movie.English.srt`
 -   **Directory-based**: Subtitles in the same folder as videos are associated
 -   **Stricter Numeric Matching**: Prevents incorrect associations between purely numeric filenames (e.g., `10.mkv` will not be matched with `1.srt`).
+
+### Arabic Language Support
+
+The tool now supports Arabic language patterns for detecting season and episode information:
+
+-   **Seasons**: Recognizes Arabic words for seasons, including numeric (e.g., `الموسم 1`, `الموسم واحد`) and ordinal forms (e.g., `الموسم الأول`, `الموسم الثاني`) up to the twentieth season.
+-   **Episodes**: Recognizes the Arabic word for episode (`الحلقة`) followed by the episode number (e.g., `الحلقة 1`).
 
 ## Undo System
 
