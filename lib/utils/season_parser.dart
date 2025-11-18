@@ -19,6 +19,28 @@ const wordToNumber = {
   'eighteen': 18,
   'nineteen': 19,
   'twenty': 20,
+  'واحد': 1,
+  'اثنان': 2,
+  'ثلاثة': 3,
+  'أربعة': 4,
+  'خمسة': 5,
+  'ستة': 6,
+  'سبعة': 7,
+  'ثمانية': 8,
+  'تسعة': 9,
+  'عشرة': 10,
+  'أحد عشر': 11,
+  'اثنى عشر': 12,
+  'اثنا عشر': 12,
+  'ثلاثة عشر': 13,
+  'أربعة عشر': 14,
+  'خمسة عشر': 15,
+  'ستة عشر': 16,
+  'سبعة عشر': 17,
+  'ثمانية عشر': 18,
+  'تسعة عشر': 19,
+  'عشرون': 20,
+  'عشرين': 20,
 };
 
 const ordinalToNumber = {
@@ -42,13 +64,61 @@ const ordinalToNumber = {
   'eighteenth': 18,
   'nineteenth': 19,
   'twentieth': 20,
+  'الأول': 1,
+  'الاول': 1,
+  'الاولى': 1,
+  'الأولى': 1,
+  'الثاني': 2,
+  'الثانى': 2,
+  'الثانىة': 2,
+  'الثالث': 3,
+  'الثالثة': 3,
+  'الرابع': 4,
+  'الرابعة': 4,
+  'الخامس': 5,
+  'الخامسة': 5,
+  'السادس': 6,
+  'السادسة': 6,
+  'السابع': 7,
+  'السابعة': 7,
+  'الثامن': 8,
+  'الثامنة': 8,
+  'التاسع': 9,
+  'التاسعة': 9,
+  'العاشر': 10,
+  'العاشرة': 10,
+  'الحادي عشر': 11,
+  'الحادى عشر': 11,
+  'الحادية عشر': 11,
+  'الثاني عشر': 12,
+  'الثانى عشر': 12,
+  'الثانية عشر': 12,
+  'الثالث عشر': 13,
+  'الثالثة عشر': 13,
+  'الرابع عشر': 14,
+  'الرابعة عشر': 14,
+  'الخامس عشر': 15,
+  'الخامسة عشر': 15,
+  'السادس عشر': 16,
+  'الستة عشر': 16,
+  'السادسة عشر': 16,
+  'السابع عشر': 17,
+  'السبعة عشر': 17,
+  'السابعة عشر': 17,
+  'الثامن عشر': 18,
+  'الثمانية عشر': 18,
+  'التاسع عشر': 19,
+  'التسعة عشر': 19,
+  'التاسعة عشر': 19,
+  'العشرون': 20,
+  'العشرين': 20,
 };
 
 int? extractSeasonFromDirName(String dirName) {
   final lowerDirName = dirName.toLowerCase();
 
   final seasonMatch = RegExp(
-    r'^(?:season\s*|s)(\d+)$',
+    r'^(?:season\s*|s|الموسم\s*)(\d+)$',
     caseSensitive: false,
   ).firstMatch(lowerDirName);
   if (seasonMatch != null) {
@@ -56,13 +126,15 @@ int? extractSeasonFromDirName(String dirName) {
   }
 
   for (final entry in wordToNumber.entries) {
-    if (lowerDirName == 'season ${entry.key}') {
+    if (lowerDirName == 'season ${entry.key.toLowerCase()}' ||
+        lowerDirName == 'الموسم ${entry.key.toLowerCase()}') {
       return entry.value;
     }
   }
 
   for (final entry in ordinalToNumber.entries) {
-    if (lowerDirName == '${entry.key} season') {
+    if (lowerDirName == '${entry.key.toLowerCase()} season' ||
+        lowerDirName == 'الموسم ${entry.key.toLowerCase()}') {
       return entry.value;
     }
   }

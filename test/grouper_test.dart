@@ -26,5 +26,26 @@ void main() {
       expect(grouped.keys.first, 'my show');
       expect(grouped.values.first.length, 2);
     });
+
+    test('groups shows with Arabic season names correctly', () {
+      final items = [
+        MediaItem(
+          path: 'My Show/الموسم الأول/S01E01.mkv',
+          type: MediaType.tvShow,
+          episode: Episode(seasonNumber: 1, episodeNumberStart: 1),
+        ),
+        MediaItem(
+          path: 'My Show/الموسم الثاني/S02E01.mkv',
+          type: MediaType.tvShow,
+          episode: Episode(seasonNumber: 2, episodeNumberStart: 1),
+        ),
+      ];
+
+      final grouped = grouper.groupShows(items);
+
+      expect(grouped.length, 1);
+      expect(grouped.keys.first, 'my show');
+      expect(grouped.values.first.length, 2);
+    });
   });
 }

@@ -330,7 +330,7 @@ class MediaScanner {
 
     // New pattern: eX or eXX
     final ePatternMatch = RegExp(
-      r'\be(\d+)\b',
+      r'(?:e|الحلقة\s*)(\d+)',
       caseSensitive: false,
     ).firstMatch(fileName);
     if (ePatternMatch != null) {
@@ -378,7 +378,10 @@ class MediaScanner {
       return MediaType.tvShow;
     }
 
-    if (RegExp(r'\be(\d+)\b', caseSensitive: false).hasMatch(fileName)) {
+    if (RegExp(
+      r'(?:e|الحلقة\s*)(\d+)',
+      caseSensitive: false,
+    ).hasMatch(fileName)) {
       return MediaType.tvShow;
     }
 

@@ -135,5 +135,13 @@ void main() {
       expect(result.episodeNumberStart, 1);
       expect(result.episodeNumberEnd, isNull);
     });
+
+    test('should parse "الحلقة 1" format', () {
+      final result = scanner.extractEpisodeInfo('My Show - الحلقة 1.mkv');
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 1);
+      expect(result.episodeNumberEnd, isNull);
+    });
   });
 }
