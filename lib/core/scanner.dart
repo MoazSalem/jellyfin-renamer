@@ -333,7 +333,7 @@ class MediaScanner {
 
     // New pattern: eX or eXX
     final ePatternMatch = RegExp(
-      r'\be(\d{1,2})\b',
+      r'\be(\d+)\b',
       caseSensitive: false,
     ).firstMatch(fileName);
     if (ePatternMatch != null) {
@@ -385,11 +385,11 @@ class MediaScanner {
       return MediaType.tvShow;
     }
 
-    if (RegExp(r'episode\s*\d{1,2}', caseSensitive: false).hasMatch(fileName)) {
+    if (RegExp(r'episode\s*\d+', caseSensitive: false).hasMatch(fileName)) {
       return MediaType.tvShow;
     }
 
-    if (RegExp(r'\be(\d{1,2})\b', caseSensitive: false).hasMatch(fileName)) {
+    if (RegExp(r'\be(\d+)\b', caseSensitive: false).hasMatch(fileName)) {
       return MediaType.tvShow;
     }
 

@@ -111,5 +111,13 @@ void main() {
       expect(result.episodeNumberStart, 3);
       expect(result.episodeNumberEnd, isNull);
     });
+
+    test('should parse "episode 0" format', () {
+      final result = scanner.extractEpisodeInfo('My Show - episode 0.mkv');
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 0);
+      expect(result.episodeNumberEnd, isNull);
+    });
   });
 }
