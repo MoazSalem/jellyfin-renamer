@@ -143,5 +143,25 @@ void main() {
       expect(result.episodeNumberStart, 1);
       expect(result.episodeNumberEnd, isNull);
     });
+
+    test('should parse "EP 05" format correctly', () {
+      final result = scanner.extractEpisodeInfo(
+        'ZOM 100/Z100ZNNMNS100NK EP 05 FHD.mp4',
+      );
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 5);
+      expect(result.episodeNumberEnd, isNull);
+    });
+
+    test('should not match numbers from show name', () {
+      final result = scanner.extractEpisodeInfo(
+        'Show100/Show100 EP 03.mp4',
+      );
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 3);
+      expect(result.episodeNumberEnd, isNull);
+    });
   });
 }

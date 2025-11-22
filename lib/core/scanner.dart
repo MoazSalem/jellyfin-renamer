@@ -282,7 +282,27 @@ class MediaScanner {
       }
     }
 
-    // Pattern 4: 101 (single)
+    // Pattern 4: EP/E pattern (check before 3-digit to avoid false matches)
+    // Matches: EP 05, E05, e3, الحلقة 1, etc.
+    final ePatternMatch = RegExp(
+      r'(?:\bep?\s*|الحلقة\s*)(\d+)',
+      caseSensitive: false,
+    ).firstMatch(fileName);
+    if (ePatternMatch != null) {
+      _logger.debug('Matched EP/E pattern.');
+      final episodeNum = int.parse(ePatternMatch.group(1)!);
+
+      // Try to get season from parent folder
+      final seasonNum = extractSeasonFromDirName(parentDirName);
+      if (seasonNum != null) {
+        return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
+      }
+
+      // If no season in folder, assume season 1
+      return Episode(seasonNumber: 1, episodeNumberStart: episodeNum);
+    }
+
+    // Pattern 5: 101 (single) - 3-digit episode code
     final threeDigitMatch = RegExp(
       r'\b(\d{1,2})(\d{2})\b',
     ).firstMatch(fileName);
@@ -302,7 +322,7 @@ class MediaScanner {
         'Matched season in parent directory: $parentDirName',
       );
 
-      // Pattern 5a: 12-13
+      // Pattern 6a: 12-13
       final folderMultiMatch = RegExp(
         r'^(\d{1,2})[-_](\d{1,2})$',
       ).firstMatch(fileName);
@@ -317,7 +337,7 @@ class MediaScanner {
         );
       }
 
-      // Pattern 5b: 12 (single)
+      // Pattern 6b: 12 (single)
       final episodeFileMatch = RegExp(r'^(\d{1,3})$').firstMatch(fileName);
       if (episodeFileMatch != null) {
         _logger.debug('Matched single episode pattern in season folder.');
@@ -328,26 +348,7 @@ class MediaScanner {
     }
     _logger.debug('No season match in parent directory.');
 
-    // New pattern: eX or eXX
-    final ePatternMatch = RegExp(
-      r'(?:e|الحلقة\s*)(\d+)',
-      caseSensitive: false,
-    ).firstMatch(fileName);
-    if (ePatternMatch != null) {
-      _logger.debug('Matched eX/eXX pattern.');
-      final episodeNum = int.parse(ePatternMatch.group(1)!);
-
-      // Try to get season from parent folder
-      final seasonNum = extractSeasonFromDirName(parentDirName);
-      if (seasonNum != null) {
-        return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
-      }
-
-      // If no season in folder, assume season 1
-      return Episode(seasonNumber: 1, episodeNumberStart: episodeNum);
-    }
-
-    // Fallback for "episode XX" format
+    // Pattern 7: Fallback for "episode XX" format
     final episodeWordMatch = RegExp(
       r'episode\s*(\d+)',
       caseSensitive: false,
@@ -379,7 +380,7 @@ class MediaScanner {
     }
 
     if (RegExp(
-      r'(?:e|الحلقة\s*)(\d+)',
+      r'(?:\bep?\s*|الحلقة\s*)(\d+)',
       caseSensitive: false,
     ).hasMatch(fileName)) {
       return MediaType.tvShow;
