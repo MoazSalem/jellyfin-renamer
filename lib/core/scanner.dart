@@ -363,6 +363,26 @@ class MediaScanner {
       return Episode(seasonNumber: 1, episodeNumberStart: episodeNum);
     }
 
+    // Pattern 8: Title-Episode pattern (e.g., "Show Name - 01")
+    final titleEpisodeMatch = RegExp(r'^(.+?)[-\s]+(\d{1,3})$').firstMatch(fileName);
+    if (titleEpisodeMatch != null) {
+       final titlePart = titleEpisodeMatch.group(1)!.trim();
+       final episodeNum = int.parse(titleEpisodeMatch.group(2)!);
+
+       // Verify against parent directory to be safe, similar to detection logic
+       final normalizedTitle = _normalizeForSubtitleMatching(titlePart);
+       final normalizedParent = _normalizeForSubtitleMatching(parentDirName);
+
+       if (normalizedParent.contains(normalizedTitle) || normalizedTitle.contains(normalizedParent)) {
+          final seasonNum = extractSeasonFromDirName(parentDirName);
+          if (seasonNum != null) {
+            return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
+          }
+          // Assume season 1 if not otherwise specified
+          return Episode(seasonNumber: 1, episodeNumberStart: episodeNum);
+       }
+    }
+
     return null;
   }
 
@@ -407,6 +427,28 @@ class MediaScanner {
         if (seasonNum > 0 && seasonNum < 50) {
           return MediaType.tvShow;
         }
+      }
+    }
+
+    // 5. Title-Episode pattern (e.g., "Show Name - 01")
+    // This is a heuristic: if the file ends in a number and the prefix
+    // matches the parent directory name, it's likely an episode.
+    final titleEpisodeMatch = RegExp(r'^(.+?)[-\s]+(\d{1,3})$').firstMatch(fileName);
+    if (titleEpisodeMatch != null) {
+      final titlePart = titleEpisodeMatch.group(1)!.trim();
+      final numberPart = titleEpisodeMatch.group(2)!;
+
+      // Avoid matching years (e.g. "Movie 2023")
+      if (numberPart.length == 4 && (numberPart.startsWith('19') || numberPart.startsWith('20'))) {
+        return MediaType.movie;
+      }
+
+      // Normalize for comparison
+      final normalizedTitle = _normalizeForSubtitleMatching(titlePart);
+      final normalizedParent = _normalizeForSubtitleMatching(parentDirName);
+
+      if (normalizedParent.contains(normalizedTitle) || normalizedTitle.contains(normalizedParent)) {
+         return MediaType.tvShow;
       }
     }
 

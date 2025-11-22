@@ -163,5 +163,15 @@ void main() {
       expect(result.episodeNumberStart, 3);
       expect(result.episodeNumberEnd, isNull);
     });
+
+    test('should parse "Title-Episode" pattern when matching parent directory', () {
+      final result = scanner.extractEpisodeInfo(
+        'NieR Automata/NieR-01.mp4',
+      );
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 1);
+      expect(result.episodeNumberEnd, isNull);
+    });
   });
 }
