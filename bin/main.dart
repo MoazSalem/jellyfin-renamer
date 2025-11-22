@@ -16,6 +16,7 @@ void main(List<String> args) async {
         )
         ..addCommand(ScanCommand(app_logger.AppLogger()))
         ..addCommand(RenameCommand(app_logger.AppLogger()))
+        ..addCommand(RenameSingleCommand(app_logger.AppLogger()))
         ..addCommand(UndoCommand(app_logger.AppLogger()));
 
   try {
@@ -39,6 +40,7 @@ void main(List<String> args) async {
           )
           ..addCommand(ScanCommand(logger))
           ..addCommand(RenameCommand(logger))
+          ..addCommand(RenameSingleCommand(logger))
           ..addCommand(UndoCommand(logger));
 
     await runnerWithLogger.run(args);
