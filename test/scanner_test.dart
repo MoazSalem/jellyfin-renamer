@@ -2,12 +2,23 @@ import 'package:renamer/core/scanner.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('MediaScanner Episode Parsing', () {
+  group('MediaScanner', () {
     // This is a bit of a hack to test a private method.
     // In a real-world scenario, we might make _extractEpisodeInfo a public
     // static method on a utility class, or test it via the public
     // scanDirectory method. For this exercise, we'll expose it for testing.
     final scanner = MediaScanner();
+
+    test('detects episode with attached number in Season folder', () {
+      // Pattern: ShingekinoKyojin1.mp4 in Season 1 folder
+      final result = scanner.extractEpisodeInfo(
+        'path/to/Attack on Titan/Season 1/ShingekinoKyojin1.mp4',
+      );
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 1);
+      expect(result.episodeNumberEnd, isNull);
+    });
 
     test('should parse standard SxxExx format', () {
       final result = scanner.extractEpisodeInfo('My.Show.S02E05.mkv');

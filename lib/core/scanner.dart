@@ -344,6 +344,17 @@ class MediaScanner {
         final episodeNum = int.parse(episodeFileMatch.group(1)!);
         return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
       }
+
+      // Pattern 6c: Attached number (e.g. ShingekinoKyojin1)
+      // Only if we are in a season folder, we can be more aggressive.
+      // We look for a number at the very end of the string.
+      final attachedNumberMatch = RegExp(r'(\d{1,3})$').firstMatch(fileName);
+      if (attachedNumberMatch != null) {
+         _logger.debug('Matched attached number pattern in season folder.');
+         final episodeNum = int.parse(attachedNumberMatch.group(1)!);
+         return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
+      }
+
       _logger.debug('No episode number match in filename for season folder.');
     }
     _logger.debug('No season match in parent directory.');
@@ -410,6 +421,10 @@ class MediaScanner {
     if (extractSeasonFromDirName(parentDirName) != null) {
       // Check for numbered files inside
       if (RegExp(r'^\d{1,3}([-_]\d{1,3})?$').hasMatch(fileName)) {
+        return MediaType.tvShow;
+      }
+      // Check for attached number at end (e.g. ShowName1)
+      if (RegExp(r'\d{1,3}$').hasMatch(fileName)) {
         return MediaType.tvShow;
       }
     }
