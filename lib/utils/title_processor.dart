@@ -31,11 +31,13 @@ class TitleProcessor {
     String fileName,
   ) {
     // Clean the filename first
-    final cleanName = _cleanFilename(fileName);
-
-    // First, extract the year from the full clean name.
-    final yearMatch = RegExp(r'\b(19|20)\d{2}\b').firstMatch(cleanName);
+    // First, extract the year from the raw filename.
+    // We do this before cleaning because cleaning might remove parentheses containing the year.
+    final yearMatch = RegExp(r'\b(19|20)\d{2}\b').firstMatch(fileName);
     final year = yearMatch != null ? int.tryParse(yearMatch.group(0)!) : null;
+
+    // Clean the filename
+    final cleanName = _cleanFilename(fileName);
 
     // Now, find the earliest keyword to determine where the title ends.
     final patterns = [
