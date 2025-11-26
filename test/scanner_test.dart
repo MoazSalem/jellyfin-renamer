@@ -291,5 +291,15 @@ void main() {
       expect(result, isNotNull, reason: 'Should detect 001 as episode');
       expect(result!.episodeNumberStart, 1);
     });
+    test('should correctly detect episode 12 and NOT S02E64 from x.264', () {
+      // F:\Anime\Saga of Tanya the Evil\[AnimeSanka.com] YS - 12 END (BD 1920x1080 x.264 DTS.mkv
+      final result = scanner.extractEpisodeInfo(
+        'Saga of Tanya the Evil/[AnimeSanka.com] YS - 12 END (BD 1920x1080 x.264 DTS.mkv',
+      );
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 12);
+      // Previously it was detecting S02E64 because of x.264 -> 264 -> S02 E64
+    });
   });
 }

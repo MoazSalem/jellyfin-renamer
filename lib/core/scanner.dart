@@ -245,6 +245,20 @@ class MediaScanner {
     final parentDirName = path.basename(path.dirname(filePath));
     _logger.debug('fileName: $fileName, parentDirName: $parentDirName');
 
+    // Pattern: Anime Release Group [Group] Title - 01 [Tags]
+    // Check this FIRST as it is very specific and high confidence.
+    // This avoids issues where other patterns (like 3-digit) match parts of the tags (e.g. x.264 -> 264).
+    if (RegExp(r'^\[.+?\]\s*.+?\s*-\s*\d{1,4}').hasMatch(fileName)) {
+      _logger.debug('Matched Anime Release Group pattern.');
+      // Extract the episode number from the pattern
+      final match = RegExp(r'-\s*(\d{1,4})').firstMatch(fileName);
+      if (match != null) {
+        final episodeNum = int.parse(match.group(1)!);
+        final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
+        return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
+      }
+    }
+
     // SxxExx Patterns (most specific first)
     // Pattern 1: S01E01-E02 or S01E01-02 (separator is mandatory)
     final multiEpMatch = RegExp(
@@ -414,14 +428,6 @@ class MediaScanner {
        final episodeNum = int.parse(titleEpisodeMatch.group(2)!);
 
        // Verify against parent directory to be safe
-       // UNLESS it matches the "Anime Release Group" pattern, which is high confidence.
-       // Pattern: [Group] Title - 01 [Tags]
-       if (RegExp(r'^\[.+?\]\s*.+?\s*-\s*\d{1,4}').hasMatch(fileName)) {
-          _logger.debug('Matched Anime Release Group pattern, bypassing fuzzy check.');
-          final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
-          return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
-       }
-
        if (_isFuzzyMatch(titlePart, parentDirName)) {
           final seasonNum = extractSeasonFromDirName(parentDirName);
           if (seasonNum != null) {
