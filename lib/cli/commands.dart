@@ -354,6 +354,12 @@ class UndoCommand extends Command<void> {
         'preview',
         abbr: 'p',
         help: 'Show what will be undone without applying',
+      )
+      ..addFlag(
+        'dry-run',
+        abbr: 'd',
+        help: 'Alias for --preview',
+        negatable: false,
       );
   }
 
@@ -370,7 +376,8 @@ class UndoCommand extends Command<void> {
   @override
   Future<void> run() async {
     final logPath = argResults?['log'] as String? ?? 'rename_log.json';
-    final preview = argResults?['preview'] as bool? ?? false;
+    final preview = (argResults?['preview'] as bool? ?? false) ||
+        (argResults?['dry-run'] as bool? ?? false);
 
     final undoLogger = UndoLogger(logPath, logger: _logger);
 
