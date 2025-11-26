@@ -6,6 +6,7 @@ import 'package:renamer/core/undo.dart';
 import 'package:renamer/metadata/interactive.dart';
 import 'package:renamer/metadata/models.dart';
 import 'package:renamer/utils/logger.dart' as app_logger;
+import 'package:renamer/utils/sort_utils.dart';
 import 'package:renamer/utils/title_processor.dart';
 
 /// Represents a single rename operation with source and target paths.
@@ -504,7 +505,7 @@ class MediaRenamer {
     String childPrefix,
   ) {
     final entries = node.entries.toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
+      ..sort((a, b) => SortUtils.naturalCompare(a.key, b.key));
 
     for (var i = 0; i < entries.length; i++) {
       final entry = entries[i];
