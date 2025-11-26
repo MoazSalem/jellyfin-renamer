@@ -61,7 +61,7 @@ class TitleProcessor {
     var title = cleanName.substring(0, earliestEndIndex).trim();
 
     // Final cleanup of the extracted title
-    title = title.replaceAll(RegExp(r'[\s._]+$'), '').trim();
+    title = title.replaceAll(RegExp(r'[\s._-]+$'), '').trim();
 
     return (title: title.isNotEmpty ? title : null, year: year);
   }
