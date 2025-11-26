@@ -374,5 +374,24 @@ void main() {
       expect(result!.seasonNumber, 1);
       expect(result.episodeNumberStart, 12);
     });
+    test('should detect fractional episode number 06.5', () {
+      // 86 EiSi S2 - 06.5 [Web-DL - 1080p - X265].mkv
+      final result = scanner.extractEpisodeInfo(
+        '86 EiSi S2/86 EiSi S2 - 06.5 [Web-DL - 1080p - X265].mkv',
+      );
+      expect(result, isNotNull, reason: '06.5 should be detected');
+      expect(result!.seasonNumber, 2);
+      expect(result.episodeNumberStart, 6.5);
+    });
+
+    test('should detect fractional episode number 10.5', () {
+      // 86 EiSi S2 - 10.5 [Web-DL - 1080p - X265].mkv
+      final result = scanner.extractEpisodeInfo(
+        '86 EiSi S2/86 EiSi S2 - 10.5 [Web-DL - 1080p - X265].mkv',
+      );
+      expect(result, isNotNull, reason: '10.5 should be detected');
+      expect(result!.seasonNumber, 2);
+      expect(result.episodeNumberStart, 10.5);
+    });
   });
 }

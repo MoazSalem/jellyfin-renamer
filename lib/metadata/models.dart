@@ -226,10 +226,10 @@ class Episode {
   final int seasonNumber;
 
   /// The starting episode number within the season.
-  final int episodeNumberStart;
+  final num episodeNumberStart;
 
   /// The ending episode number for multi-episode files.
-  final int? episodeNumberEnd;
+  final num? episodeNumberEnd;
 
   /// The title of the episode, if known.
   final String? title;
@@ -241,9 +241,25 @@ class Episode {
   /// (e.g., "S01E05" or "S01E05-E06").
   String get episodeCode {
     final seasonStr = 'S${seasonNumber.toString().padLeft(2, '0')}';
-    final episodeStartStr = 'E${episodeNumberStart.toString().padLeft(2, '0')}';
+    
+    String formatNum(num n) {
+      // If integer, pad with 0. If double, keep as is (e.g. 6.5)
+      // Ideally we want 06.5 for sorting?
+      // Let's stick to simple padding for integer part.
+      if (n is int || n == n.roundToDouble()) {
+        return n.toInt().toString().padLeft(2, '0');
+      }
+      // For fractional, pad the integer part: 6.5 -> 06.5
+      final intPart = n.floor();
+      final fracPart = n - intPart;
+      // Remove "0." from fraction string "0.5" -> ".5"
+      final fracStr = fracPart.toString().substring(1); 
+      return '${intPart.toString().padLeft(2, '0')}$fracStr';
+    }
+
+    final episodeStartStr = 'E${formatNum(episodeNumberStart)}';
     if (episodeNumberEnd != null) {
-      final episodeEndStr = 'E${episodeNumberEnd!.toString().padLeft(2, '0')}';
+      final episodeEndStr = 'E${formatNum(episodeNumberEnd!)}';
       return '$seasonStr$episodeStartStr-$episodeEndStr';
     }
     return '$seasonStr$episodeStartStr';

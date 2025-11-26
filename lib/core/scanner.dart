@@ -265,25 +265,25 @@ class MediaScanner {
 
     // Pattern 2: S01E01 (single)
     final singleEpMatch = RegExp(
-      r'S(\d{1,2})E(\d{1,2})',
+      r'S(\d{1,2})E(\d{1,2}(?:\.\d{1,2})?)(?!\d)',
       caseSensitive: false,
     ).firstMatch(fileName);
     if (singleEpMatch != null) {
       _logger.debug('Matched single SxxExx pattern.');
       final seasonNum = int.parse(singleEpMatch.group(1)!);
-      final episodeNum = int.parse(singleEpMatch.group(2)!);
+      final episodeNum = num.parse(singleEpMatch.group(2)!);
       return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
     }
 
     // Pattern 4: EP/E pattern (check before 3-digit to avoid false matches)
     // Matches: EP 05, E05, e3, الحلقة 1, etc.
     final ePatternMatch = RegExp(
-      r'(?:\bep?\s*|الحلقة\s*)(\d+)',
+      r'(?:\bep?\s*|الحلقة\s*)(\d+(?:\.\d{1,2})?)(?!\d)',
       caseSensitive: false,
     ).firstMatch(fileName);
     if (ePatternMatch != null) {
       _logger.debug('Matched EP/E pattern.');
-      final episodeNum = int.parse(ePatternMatch.group(1)!);
+      final episodeNum = num.parse(ePatternMatch.group(1)!);
 
       // Try to get season from parent folder
       final seasonNum = extractSeasonFromDirName(parentDirName);
@@ -298,12 +298,12 @@ class MediaScanner {
     // Pattern: Anime Release Group [Group] Title - 01 [Tags]
     // Check this FIRST as it is very specific and high confidence.
     // This avoids issues where other patterns (like 3-digit) match parts of the tags (e.g. x.264 -> 264).
-    if (RegExp(r'^\[.+?\]\s*.+?\s*-\s*\d{1,4}').hasMatch(fileName)) {
+    if (RegExp(r'^\[.+?\]\s*.+?\s*-\s*\d{1,4}(?:\.\d{1,2})?(?!\d)').hasMatch(fileName)) {
       _logger.debug('Matched Anime Release Group pattern.');
       // Extract the episode number from the pattern
-      final match = RegExp(r'-\s*(\d{1,4})').firstMatch(fileName);
+      final match = RegExp(r'-\s*(\d{1,4}(?:\.\d{1,2})?)(?!\d)').firstMatch(fileName);
       if (match != null) {
-        final episodeNum = int.parse(match.group(1)!);
+        final episodeNum = num.parse(match.group(1)!);
         final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
         return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
       }
@@ -389,20 +389,20 @@ class MediaScanner {
       }
 
       // Pattern 6b: 12 (single)
-      final episodeFileMatch = RegExp(r'^(\d{1,3})$').firstMatch(fileName);
+      final episodeFileMatch = RegExp(r'^(\d{1,3}(?:\.\d{1,2})?)$').firstMatch(fileName);
       if (episodeFileMatch != null) {
         _logger.debug('Matched single episode pattern in season folder.');
-        final episodeNum = int.parse(episodeFileMatch.group(1)!);
+        final episodeNum = num.parse(episodeFileMatch.group(1)!);
         return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
       }
 
       // Pattern 6c: Attached number (e.g. ShingekinoKyojin1)
       // Only if we are in a season folder, we can be more aggressive.
       // We look for a number at the very end of the string.
-      final attachedNumberMatch = RegExp(r'(\d{1,3})$').firstMatch(fileName);
+      final attachedNumberMatch = RegExp(r'(\d{1,3}(?:\.\d{1,2})?)$').firstMatch(fileName);
       if (attachedNumberMatch != null) {
          _logger.debug('Matched attached number pattern in season folder.');
-         final episodeNum = int.parse(attachedNumberMatch.group(1)!);
+         final episodeNum = num.parse(attachedNumberMatch.group(1)!);
          return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
       }
 
@@ -412,11 +412,11 @@ class MediaScanner {
 
     // Pattern 7: Fallback for "episode XX" format
     final episodeWordMatch = RegExp(
-      r'episode\s*(\d+)',
+      r'episode\s*(\d+(?:\.\d{1,2})?)(?!\d)',
       caseSensitive: false,
     ).firstMatch(fileName);
     if (episodeWordMatch != null) {
-      final episodeNum = int.parse(episodeWordMatch.group(1)!);
+      final episodeNum = num.parse(episodeWordMatch.group(1)!);
       final seasonNum = extractSeasonFromDirName(parentDirName);
       if (seasonNum != null) {
         return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
@@ -426,10 +426,10 @@ class MediaScanner {
     }
 
     // Pattern 8: Title-Episode pattern (e.g., "Show Name - 01 [Extra]")
-    final titleEpisodeMatch = RegExp(r'^(.+?)[-\s_]+(\d{1,3})(?:[-\s_\[\(].*)?$').firstMatch(fileName);
+    final titleEpisodeMatch = RegExp(r'^(.+?)[-\s_]+(\d{1,3}(?:\.\d{1,2})?)(?!\d)(?:[-\s_\[\(].*)?$').firstMatch(fileName);
     if (titleEpisodeMatch != null) {
        final titlePart = titleEpisodeMatch.group(1)!.trim();
-       final episodeNum = int.parse(titleEpisodeMatch.group(2)!);
+       final episodeNum = num.parse(titleEpisodeMatch.group(2)!);
 
        // Verify against parent directory to be safe
        if (_isFuzzyMatch(titlePart, parentDirName)) {
@@ -445,7 +445,7 @@ class MediaScanner {
     // Pattern 9: Concatenated Show Name + Number (e.g. YakusokunoNeverland10)
     // Refined to handle fuzzy matches (e.g. NarutoShippuuden vs Naruto shippuden)
     // 1. Try to split filename into Text + Number
-    final concatMatch = RegExp(r'^([a-zA-Z0-9]+?)(\d{1,4})(?:END)?$').firstMatch(fileName);
+    final concatMatch = RegExp(r'^([a-zA-Z0-9]+?)(\d{1,4}(?:\.\d{1,2})?)(?!\d)(?:END)?$').firstMatch(fileName);
     if (concatMatch != null) {
        final textPart = concatMatch.group(1)!;
        final numberPart = concatMatch.group(2)!;
@@ -453,7 +453,7 @@ class MediaScanner {
        // Verify text part matches parent directory
        if (_isFuzzyMatch(textPart, parentDirName)) {
           _logger.debug('Matched concatenated show name pattern (fuzzy).');
-          final episodeNum = int.parse(numberPart);
+          final episodeNum = num.parse(numberPart);
           final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
           return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
        }
@@ -462,9 +462,9 @@ class MediaScanner {
     // Pattern 10: Absolute Numbering Fallback (e.g. 100.mp4, 1000.mp4)
     // If the file is JUST a number, and it wasn't caught by Pattern 5 (SSEE logic),
     // it's likely an absolute episode number (especially for long running shows).
-    if (RegExp(r'^\d{1,4}$').hasMatch(fileName)) {
+    if (RegExp(r'^\d{1,4}(?:\.\d{1,2})?$').hasMatch(fileName)) {
        _logger.debug('Matched absolute numbering fallback.');
-       final episodeNum = int.parse(fileName);
+       final episodeNum = num.parse(fileName);
        final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
        return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
     }
@@ -486,7 +486,7 @@ class MediaScanner {
     }
 
     if (RegExp(
-      r'(?:\bep?\s*|الحلقة\s*)(\d+)',
+      r'(?:\bep?\s*|الحلقة\s*)(\d+(?:\.\d{1,2})?)(?!\d)',
       caseSensitive: false,
     ).hasMatch(fileName)) {
       return MediaType.tvShow;
@@ -502,18 +502,18 @@ class MediaScanner {
     }
 
     // Pattern: Anime Release Group [Group] Title - 01 [Tags]
-    if (RegExp(r'^\[.+?\]\s*.+?\s*-\s*\d{1,4}').hasMatch(fileName)) {
+    if (RegExp(r'^\[.+?\]\s*.+?\s*-\s*\d{1,4}(?:\.\d{1,2})?(?!\d)').hasMatch(fileName)) {
       return MediaType.tvShow;
     }
 
     // 2. Season folder context (unambiguous TV)
     if (extractSeasonFromDirName(parentDirName) != null) {
       // Check for numbered files inside
-      if (RegExp(r'^\d{1,3}([-_]\d{1,3})?$').hasMatch(fileName)) {
+      if (RegExp(r'^\d{1,3}(?:\.\d{1,2})?([-_]\d{1,3}(?:\.\d{1,2})?)?$').hasMatch(fileName)) {
         return MediaType.tvShow;
       }
       // Check for attached number at end (e.g. ShowName1)
-      if (RegExp(r'\d{1,3}$').hasMatch(fileName)) {
+      if (RegExp(r'\d{1,3}(?:\.\d{1,2})?$').hasMatch(fileName)) {
         return MediaType.tvShow;
       }
     }
@@ -545,7 +545,7 @@ class MediaScanner {
     // This is a heuristic: if the file ends in a number and the prefix
     // matches the parent directory name, it's likely an episode.
     // Allow underscores as separators too.
-    final titleEpisodeMatch = RegExp(r'^(.+?)[-\s_]+(\d{1,3})(?:[-\s_\[\(].*)?$').firstMatch(fileName);
+    final titleEpisodeMatch = RegExp(r'^(.+?)[-\s_]+(\d{1,3}(?:\.\d{1,2})?)(?!\d)(?:[-\s_\[\(].*)?$').firstMatch(fileName);
     if (titleEpisodeMatch != null) {
       final titlePart = titleEpisodeMatch.group(1)!.trim();
       final numberPart = titleEpisodeMatch.group(2)!;
@@ -562,7 +562,7 @@ class MediaScanner {
     }
 
     // 6. Concatenated Show Name + Number (e.g. YakusokunoNeverland10)
-    final concatMatch = RegExp(r'^([a-zA-Z0-9]+?)(\d{1,4})(?:END)?$').firstMatch(fileName);
+    final concatMatch = RegExp(r'^([a-zA-Z0-9]+?)(\d{1,4}(?:\.\d{1,2})?)(?!\d)(?:END)?$').firstMatch(fileName);
     if (concatMatch != null) {
        final textPart = concatMatch.group(1)!;
        if (_isFuzzyMatch(textPart, parentDirName)) {
@@ -571,7 +571,7 @@ class MediaScanner {
     }
 
     // 7. Absolute Numbering Fallback (e.g. 100.mp4, 1000.mp4)
-    if (RegExp(r'^\d{1,4}$').hasMatch(fileName)) {
+    if (RegExp(r'^\d{1,4}(?:\.\d{1,2})?$').hasMatch(fileName)) {
        return MediaType.tvShow;
     }
 
