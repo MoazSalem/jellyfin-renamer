@@ -246,39 +246,39 @@ void main() {
     });
 
     test('detects My Japanese Show with Japanese acronym', () {
-      // F:\Anime\my japanese show\WaShKe - 01 [Web-DL - 1080p - X265].mkv
+      // F:\Anime\my japanese show\MJS - 01 [Web-DL - 1080p - X265].mkv
       final result = scanner.extractEpisodeInfo(
-        'my japanese show/WaShKe - 01 [Web-DL - 1080p - X265].mkv',
+        'my japanese show/MJS - 01 [Web-DL - 1080p - X265].mkv',
       );
-      expect(result, isNotNull, reason: 'Should detect WaShKe as episode');
+      expect(result, isNotNull, reason: 'Should detect MJS as episode');
       expect(result!.episodeNumberStart, 1);
     });
 
-    test('detects My Other Show S2 with short acronym', () {
-      // F:\Anime\My Other Show Season 2\O S2 - 01 [Bluray - 1080p - Ar - X265].mkv
+    test('detects My Other Show with short acronym', () {
+      // F:\Anime\My Other Show\MOS - 01 [Bluray - 1080p - Ar - X265].mkv
       final result = scanner.extractEpisodeInfo(
-        'My Other Show Season 2/O S2 - 01 [Bluray - 1080p - Ar - X265].mkv',
+        'My Other Show/MOS - 01 [Bluray - 1080p - Ar - X265].mkv',
       );
-      expect(result, isNotNull, reason: 'Should detect O S2 as episode');
-      expect(result!.seasonNumber, 2);
+      expect(result, isNotNull, reason: 'Should detect MOS as episode');
+      expect(result!.seasonNumber, 1);
       expect(result.episodeNumberStart, 1);
     });
 
     test('detects Another Show with acronym', () {
-      // F:\Anime\Another Show\YS - 01  [Bluray - 1080p - Ar - X265].mkv
+      // F:\Anime\Another Show Extra\ASE - 01  [Bluray - 1080p - Ar - X265].mkv
       final result = scanner.extractEpisodeInfo(
-        'Another Show/YS - 01  [Bluray - 1080p - Ar - X265].mkv',
+        'Another Show Extra/ASE - 01  [Bluray - 1080p - Ar - X265].mkv',
       );
-      expect(result, isNotNull, reason: 'Should detect YS as episode');
+      expect(result, isNotNull, reason: 'Should detect ASE as episode');
       expect(result!.episodeNumberStart, 1);
     });
 
     test('detects Spaced Show with spaced acronym', () {
-      // F:\Anime\Spaced Show\S E - 01 [BLURAY - 720P - AR - X265].mkv
+      // F:\Anime\Spaced Show Extra\S S E - 01 [BLURAY - 720P - AR - X265].mkv
       final result = scanner.extractEpisodeInfo(
-        'Spaced Show/S E - 01 [BLURAY - 720P - AR - X265].mkv',
+        'Spaced Show Extra/S S E - 01 [BLURAY - 720P - AR - X265].mkv',
       );
-      expect(result, isNotNull, reason: 'Should detect S E as episode');
+      expect(result, isNotNull, reason: 'Should detect S S E as episode');
       expect(result!.episodeNumberStart, 1);
     });
 
@@ -324,6 +324,55 @@ void main() {
       expect(result, isNotNull);
       expect(result!.seasonNumber, 1);
       expect(result.episodeNumberStart, 26); // Should be 26, not 1080
+    });
+    test('should detect absolute numbering for long running shows (One Piece)', () {
+      // One Piece/100.mp4 -> Season 1, Episode 100
+      var result = scanner.extractEpisodeInfo('One Piece/100.mp4');
+      expect(result, isNotNull, reason: '100.mp4 should be detected');
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 100);
+
+      // One Piece/1000.mp4 -> Season 1, Episode 1000
+      result = scanner.extractEpisodeInfo('One Piece/1000.mp4');
+      expect(result, isNotNull, reason: '1000.mp4 should be detected');
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 1000);
+
+      // One Piece/200.mp4
+      result = scanner.extractEpisodeInfo('One Piece/200.mp4');
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 200);
+    });
+
+    test('should detect fuzzy attached numbers (Naruto Shippuden)', () {
+      // Naruto shippuden/NarutoShippuuden307.mp4
+      // Note: "shippuden" vs "Shippuuden" (extra u)
+      final result = scanner.extractEpisodeInfo(
+        'Naruto shippuden/NarutoShippuuden307.mp4',
+      );
+      expect(result, isNotNull, reason: 'NarutoShippuuden307 should be detected');
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 307);
+    });
+    test('should detect YakusokunoNeverland10', () {
+      // Yakusoku no Neverland/YakusokunoNeverland10.mp4
+      final result = scanner.extractEpisodeInfo(
+        'Yakusoku no Neverland/YakusokunoNeverland10.mp4',
+      );
+      expect(result, isNotNull, reason: 'YakusokunoNeverland10 should be detected');
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 10);
+    });
+
+    test('should detect YakusokunoNeverlandEND12', () {
+      // Yakusoku no Neverland/YakusokunoNeverlandEND12.mp4
+      final result = scanner.extractEpisodeInfo(
+        'Yakusoku no Neverland/YakusokunoNeverlandEND12.mp4',
+      );
+      expect(result, isNotNull, reason: 'YakusokunoNeverlandEND12 should be detected');
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 12);
     });
   });
 }

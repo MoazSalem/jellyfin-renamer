@@ -443,33 +443,30 @@ class MediaScanner {
     }
 
     // Pattern 9: Concatenated Show Name + Number (e.g. YakusokunoNeverland10)
-    // Normalize parent directory name by removing all non-alphanumeric characters
-    final normalizedParent = parentDirName.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toLowerCase();
-    final normalizedFile = fileName.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toLowerCase();
-
-    if (normalizedFile.startsWith(normalizedParent)) {
-       _logger.debug('Matched concatenated show name pattern.');
-       // Extract the remainder
-       final remainder = normalizedFile.substring(normalizedParent.length);
-       // Look for a number at the start of the remainder, or if the remainder IS a number
-       // e.g. YakusokunoNeverland10 -> remainder "10"
-       // e.g. YakusokunoNeverlandEND12 -> remainder "end12"
-
-       // Check if remainder starts with a number
-       final startNumberMatch = RegExp(r'^(\d{1,3})').firstMatch(remainder);
-       if (startNumberMatch != null) {
-          final episodeNum = int.parse(startNumberMatch.group(1)!);
+    // Refined to handle fuzzy matches (e.g. NarutoShippuuden vs Naruto shippuden)
+    // 1. Try to split filename into Text + Number
+    final concatMatch = RegExp(r'^([a-zA-Z0-9]+?)(\d{1,4})(?:END)?$').firstMatch(fileName);
+    if (concatMatch != null) {
+       final textPart = concatMatch.group(1)!;
+       final numberPart = concatMatch.group(2)!;
+       
+       // Verify text part matches parent directory
+       if (_isFuzzyMatch(textPart, parentDirName)) {
+          _logger.debug('Matched concatenated show name pattern (fuzzy).');
+          final episodeNum = int.parse(numberPart);
           final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
           return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
        }
+    }
 
-       // Check if remainder ends with a number (e.g. END12)
-       final endNumberMatch = RegExp(r'(\d{1,3})$').firstMatch(remainder);
-       if (endNumberMatch != null) {
-          final episodeNum = int.parse(endNumberMatch.group(1)!);
-          final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
-          return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
-       }
+    // Pattern 10: Absolute Numbering Fallback (e.g. 100.mp4, 1000.mp4)
+    // If the file is JUST a number, and it wasn't caught by Pattern 5 (SSEE logic),
+    // it's likely an absolute episode number (especially for long running shows).
+    if (RegExp(r'^\d{1,4}$').hasMatch(fileName)) {
+       _logger.debug('Matched absolute numbering fallback.');
+       final episodeNum = int.parse(fileName);
+       final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
+       return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
     }
 
     return null;
@@ -564,6 +561,20 @@ class MediaScanner {
       }
     }
 
+    // 6. Concatenated Show Name + Number (e.g. YakusokunoNeverland10)
+    final concatMatch = RegExp(r'^([a-zA-Z0-9]+?)(\d{1,4})(?:END)?$').firstMatch(fileName);
+    if (concatMatch != null) {
+       final textPart = concatMatch.group(1)!;
+       if (_isFuzzyMatch(textPart, parentDirName)) {
+          return MediaType.tvShow;
+       }
+    }
+
+    // 7. Absolute Numbering Fallback (e.g. 100.mp4, 1000.mp4)
+    if (RegExp(r'^\d{1,4}$').hasMatch(fileName)) {
+       return MediaType.tvShow;
+    }
+
     return MediaType.unknown;
   }
 
@@ -605,6 +616,14 @@ class MediaScanner {
       return true;
     }
 
+    // 4. Consonant Match (handles romanization differences like Shippuuden vs Shippuden)
+    // Remove vowels and duplicate consonants
+    final c1 = _toConsonants(n1);
+    final c2 = _toConsonants(n2);
+    if (c1.length > 3 && c2.length > 3) { // Only for reasonably long strings
+       if (c1.contains(c2) || c2.contains(c1)) return true;
+    }
+
     return false;
   }
 
@@ -625,5 +644,12 @@ class MediaScanner {
 
   Set<String> _tokenize(String normalizedText) {
     return normalizedText.split(' ').where((t) => t.length > 1).toSet();
+  }
+
+  String _toConsonants(String text) {
+    // Remove vowels and non-alphanumeric
+    return text.toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]'), '')
+        .replaceAll(RegExp(r'[aeiou]'), '');
   }
 }
