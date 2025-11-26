@@ -7,12 +7,12 @@ void main() {
     final detector = MediaDetector();
 
     test('detects TV show from episode pattern', () {
-      final result = detector.detectType('.', ['Breaking.Bad.S01E01.mkv']);
+      final result = detector.detectType('.', ['My.Show.S01E01.mkv']);
       expect(result, MediaType.tvShow);
     });
 
     test('detects movie from year pattern', () {
-      final result = detector.detectType('.', ['Inception.2010.mkv']);
+      final result = detector.detectType('.', ['My.Movie.2010.mkv']);
       expect(result, MediaType.movie);
     });
 
@@ -31,8 +31,8 @@ void main() {
 
   group('Movie model', () {
     test('generates correct Jellyfin name', () {
-      final movie = Movie(title: 'Inception', year: 2010);
-      expect(movie.jellyfinName, 'Inception (2010)');
+      final movie = Movie(title: 'My Movie', year: 2010);
+      expect(movie.jellyfinName, 'My Movie (2010)');
     });
 
     test('handles movie without year', () {
@@ -43,8 +43,8 @@ void main() {
 
   group('TvShow model', () {
     test('generates correct Jellyfin name', () {
-      final show = TvShow(title: 'Breaking Bad', year: 2008, seasons: []);
-      expect(show.jellyfinName, 'Breaking Bad (2008)');
+      final show = TvShow(title: 'My Show', year: 2008, seasons: []);
+      expect(show.jellyfinName, 'My Show (2008)');
     });
   });
 

@@ -390,17 +390,14 @@ class MediaScanner {
       return Episode(seasonNumber: 1, episodeNumberStart: episodeNum);
     }
 
-    // Pattern 8: Title-Episode pattern (e.g., "Show Name - 01")
-    final titleEpisodeMatch = RegExp(r'^(.+?)[-\s]+(\d{1,3})$').firstMatch(fileName);
+    // Pattern 8: Title-Episode pattern (e.g., "Show Name - 01 [Extra]")
+    final titleEpisodeMatch = RegExp(r'^(.+?)[-\s_]+(\d{1,3})(?:[-\s_\[\(].*)?$').firstMatch(fileName);
     if (titleEpisodeMatch != null) {
        final titlePart = titleEpisodeMatch.group(1)!.trim();
        final episodeNum = int.parse(titleEpisodeMatch.group(2)!);
 
-       // Verify against parent directory to be safe, similar to detection logic
-       final normalizedTitle = _normalizeForSubtitleMatching(titlePart);
-       final normalizedParent = _normalizeForSubtitleMatching(parentDirName);
-
-       if (normalizedParent.contains(normalizedTitle) || normalizedTitle.contains(normalizedParent)) {
+       // Verify against parent directory to be safe
+       if (_isFuzzyMatch(titlePart, parentDirName)) {
           final seasonNum = extractSeasonFromDirName(parentDirName);
           if (seasonNum != null) {
             return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
@@ -470,10 +467,11 @@ class MediaScanner {
       }
     }
 
-    // 5. Title-Episode pattern (e.g., "Show Name - 01")
+    // 5. Title-Episode pattern (e.g., "Show Name - 01 [Extra]")
     // This is a heuristic: if the file ends in a number and the prefix
     // matches the parent directory name, it's likely an episode.
-    final titleEpisodeMatch = RegExp(r'^(.+?)[-\s]+(\d{1,3})$').firstMatch(fileName);
+    // Allow underscores as separators too.
+    final titleEpisodeMatch = RegExp(r'^(.+?)[-\s_]+(\d{1,3})(?:[-\s_\[\(].*)?$').firstMatch(fileName);
     if (titleEpisodeMatch != null) {
       final titlePart = titleEpisodeMatch.group(1)!.trim();
       final numberPart = titleEpisodeMatch.group(2)!;
@@ -483,11 +481,8 @@ class MediaScanner {
         return MediaType.movie;
       }
 
-      // Normalize for comparison
-      final normalizedTitle = _normalizeForSubtitleMatching(titlePart);
-      final normalizedParent = _normalizeForSubtitleMatching(parentDirName);
-
-      if (normalizedParent.contains(normalizedTitle) || normalizedTitle.contains(normalizedParent)) {
+      // Check for fuzzy match between title part and parent directory
+      if (_isFuzzyMatch(titlePart, parentDirName)) {
          return MediaType.tvShow;
       }
     }
@@ -498,5 +493,60 @@ class MediaScanner {
   ({String? title, int? year}) _extractTitleInfo(String fileName) {
     // Use the comprehensive smart extraction method
     return TitleProcessor.extractTitleUntilKeywords(fileName);
+  }
+
+  bool _isFuzzyMatch(String title1, String title2) {
+    final n1 = _normalizeForFuzzyMatching(title1);
+    final n2 = _normalizeForFuzzyMatching(title2);
+
+    // 1. Direct containment (after normalization)
+    if (n1.contains(n2) || n2.contains(n1)) return true;
+
+    // 1b. Containment without spaces (handles Zom100 vs Zom 100)
+    final n1NoSpace = n1.replaceAll(' ', '');
+    final n2NoSpace = n2.replaceAll(' ', '');
+    if (n1NoSpace.contains(n2NoSpace) || n2NoSpace.contains(n1NoSpace)) return true;
+
+    // 2. Acronym matching (e.g. V-FE'sS -> Vivy Fluorite Eye's Song)
+    // Create acronyms from the *original* strings (but cleaned of special chars)
+    final a1 = _createAcronym(title1);
+    final a2 = _createAcronym(title2);
+    
+    // If one is an acronym of the other
+    if (a1.length > 2 && n2.replaceAll(RegExp(r'[^a-z]'), '').contains(a1)) return true;
+    if (a2.length > 2 && n1.replaceAll(RegExp(r'[^a-z]'), '').contains(a2)) return true;
+
+    // 3. Token overlap
+    // If they share significant tokens
+    final tokens1 = _tokenize(n1);
+    final tokens2 = _tokenize(n2);
+    final intersection = tokens1.intersection(tokens2);
+    
+    // If they share at least 50% of tokens of the shorter string
+    final minTokens = tokens1.length < tokens2.length ? tokens1.length : tokens2.length;
+    if (minTokens > 0 && intersection.length >= (minTokens / 2).ceil()) {
+      return true;
+    }
+
+    return false;
+  }
+
+  String _normalizeForFuzzyMatching(String text) {
+    return text.toLowerCase()
+        .replaceAll(RegExp(r'[._\-]'), ' ') // Replace separators with space
+        .replaceAll(RegExp(r'[^a-z0-9\s]'), '') // Remove special chars
+        .replaceAll(RegExp(r'\s+'), ' ') // Normalize spaces
+        .trim();
+  }
+
+  String _createAcronym(String text) {
+    final words = text.toLowerCase()
+        .replaceAll(RegExp(r"[^a-z0-9\s]"), "")
+        .split(RegExp(r'\s+'));
+    return words.where((w) => w.isNotEmpty).map((w) => w[0]).join('');
+  }
+
+  Set<String> _tokenize(String normalizedText) {
+    return normalizedText.split(' ').where((t) => t.length > 1).toSet();
   }
 }

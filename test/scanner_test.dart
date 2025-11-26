@@ -10,9 +10,9 @@ void main() {
     final scanner = MediaScanner();
 
     test('detects episode with attached number in Season folder', () {
-      // Pattern: ShingekinoKyojin1.mp4 in Season 1 folder
+      // Pattern: MyShow1.mp4 in Season 1 folder
       final result = scanner.extractEpisodeInfo(
-        'path/to/Attack on Titan/Season 1/ShingekinoKyojin1.mp4',
+        'path/to/My Show/Season 1/MyShow1.mp4',
       );
       expect(result, isNotNull);
       expect(result!.seasonNumber, 1);
@@ -157,7 +157,7 @@ void main() {
 
     test('should parse "EP 05" format correctly', () {
       final result = scanner.extractEpisodeInfo(
-        'ZOM 100/Z100ZNNMNS100NK EP 05 FHD.mp4',
+        'My Show/MS EP 05 FHD.mp4',
       );
       expect(result, isNotNull);
       expect(result!.seasonNumber, 1);
@@ -177,7 +177,7 @@ void main() {
 
     test('should parse "Title-Episode" pattern when matching parent directory', () {
       final result = scanner.extractEpisodeInfo(
-        'NieR Automata/NieR-01.mp4',
+        'My Show/My Show-01.mp4',
       );
       expect(result, isNotNull);
       expect(result!.seasonNumber, 1);
@@ -187,12 +187,52 @@ void main() {
 
     test('should parse "bracketed episode numbers" format', () {
       final result = scanner.extractEpisodeInfo(
-        'DKnN [01].mkv',
+        'My Show [01].mkv',
       );
       expect(result, isNotNull);
       expect(result!.seasonNumber, 1); // Default to season 1
       expect(result.episodeNumberStart, 1);
       expect(result.episodeNumberEnd, isNull);
+    });
+
+    test('should fuzzy match "My Show" with space difference', () {
+      // MyShow vs My Show
+      // Also tests suffix handling [Web-DL...]
+      final result = scanner.extractEpisodeInfo(
+        'My Show/[ReleaseGroup] MyShow - 01 [Web-DL - 1080p - X265].mkv',
+      );
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 1);
+    });
+
+    test('should handle underscores and suffixes in "My Show"', () {
+      final result = scanner.extractEpisodeInfo(
+        'My Show/[RG]My_Show_-_01_(Dual Audio_10bit_1080p_x265).mkv',
+      );
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 1);
+    });
+
+    test('should fuzzy match "My Long Show" with acronym/shortening', () {
+      // My L Show vs My Long Show
+      final result = scanner.extractEpisodeInfo(
+        'My Long Show/[ReleaseGroup] My L Show - 01 [Web-DL - 1080p - X265].mkv',
+      );
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 1);
+    });
+
+    test('should fuzzy match "My Very Long Show" with acronym', () {
+      // M-VL'sS vs My Very Long Show
+      final result = scanner.extractEpisodeInfo(
+        'My Very Long Show/[ReleaseGroup] M-VL\'sS  - 01 [Web-DL - 1080p - X265].mkv',
+      );
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 1);
     });
   });
 }

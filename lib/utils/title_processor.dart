@@ -46,6 +46,8 @@ class TitleProcessor {
       r'\bS\d{1,2}\b',
       r'\b(19|20)\d{2}\b', // Keep year here to find title boundary
       ...filenameFilterWords.map((word) => r'\b' + RegExp.escape(word) + r'\b'),
+      ...FileExtensions.video.map((ext) => r'\b' + RegExp.escape(ext.replaceAll('.', '')) + r'\b'),
+      ...FileExtensions.subtitle.map((ext) => r'\b' + RegExp.escape(ext.replaceAll('.', '')) + r'\b'),
     ];
 
     var earliestEndIndex = cleanName.length;
