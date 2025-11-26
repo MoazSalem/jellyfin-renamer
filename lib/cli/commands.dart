@@ -28,6 +28,9 @@ class ScanCommand extends Command<void> {
   final description = 'Scan directory for media files and detect types';
 
   @override
+  List<String> get aliases => ['s'];
+
+  @override
   Future<void> run() async {
     final path = argResults?['path'] as String? ?? Directory.current.path;
 
@@ -98,6 +101,9 @@ class RenameCommand extends Command<void> {
   final name = 'rename';
   @override
   final description = 'Rename media files to Jellyfin format';
+
+  @override
+  List<String> get aliases => ['r'];
 
   @override
   Future<void> run() async {
@@ -214,6 +220,9 @@ class RenameSingleCommand extends Command<void> {
   final name = 'rename-single';
   @override
   final description = 'Rename a single show or movie by providing its parent folder path';
+
+  @override
+  List<String> get aliases => ['rs'];
 
   @override
   Future<void> run() async {
@@ -354,6 +363,9 @@ class UndoCommand extends Command<void> {
   final name = 'undo';
   @override
   final description = 'Revert previous rename operations';
+
+  @override
+  List<String> get aliases => ['u'];
 
   @override
   Future<void> run() async {
