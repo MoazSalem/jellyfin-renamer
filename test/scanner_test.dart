@@ -236,9 +236,9 @@ void main() {
     });
 
     test('detects My Show S2 with acronym', () {
-      // F:\Anime\My Show S2\[Anime-Sanka.com][AnimeSanka.xyz] MS S2 - 01 [Web-DL - 1080p - X265].mkv
+      // F:\Anime\My Show S2\MS S2 - 01 [Web-DL - 1080p - X265].mkv
       final result = scanner.extractEpisodeInfo(
-        'My Show S2/[Anime-Sanka.com][AnimeSanka.xyz] MS S2 - 01 [Web-DL - 1080p - X265].mkv',
+        'My Show S2/MS S2 - 01 [Web-DL - 1080p - X265].mkv',
       );
       expect(result, isNotNull, reason: 'Should detect MS S2 as episode');
       expect(result!.seasonNumber, 2);
@@ -246,18 +246,18 @@ void main() {
     });
 
     test('detects My Japanese Show with Japanese acronym', () {
-      // F:\Anime\my japanese show\[Anime-Sanka.com][AnimeSanka.xyz] WaShKe - 01 [Web-DL - 1080p - X265].mkv
+      // F:\Anime\my japanese show\WaShKe - 01 [Web-DL - 1080p - X265].mkv
       final result = scanner.extractEpisodeInfo(
-        'my japanese show/[Anime-Sanka.com][AnimeSanka.xyz] WaShKe - 01 [Web-DL - 1080p - X265].mkv',
+        'my japanese show/WaShKe - 01 [Web-DL - 1080p - X265].mkv',
       );
       expect(result, isNotNull, reason: 'Should detect WaShKe as episode');
       expect(result!.episodeNumberStart, 1);
     });
 
     test('detects My Other Show S2 with short acronym', () {
-      // F:\Anime\My Other Show Season 2\[AnimeSanka.com] O S2 - 01 [Bluray - 1080p - Ar - X265].mkv
+      // F:\Anime\My Other Show Season 2\O S2 - 01 [Bluray - 1080p - Ar - X265].mkv
       final result = scanner.extractEpisodeInfo(
-        'My Other Show Season 2/[AnimeSanka.com] O S2 - 01 [Bluray - 1080p - Ar - X265].mkv',
+        'My Other Show Season 2/O S2 - 01 [Bluray - 1080p - Ar - X265].mkv',
       );
       expect(result, isNotNull, reason: 'Should detect O S2 as episode');
       expect(result!.seasonNumber, 2);
@@ -265,18 +265,18 @@ void main() {
     });
 
     test('detects Another Show with acronym', () {
-      // F:\Anime\Another Show\[AnimeSanka.com] YS - 01  [Bluray - 1080p - Ar - X265].mkv
+      // F:\Anime\Another Show\YS - 01  [Bluray - 1080p - Ar - X265].mkv
       final result = scanner.extractEpisodeInfo(
-        'Another Show/[AnimeSanka.com] YS - 01  [Bluray - 1080p - Ar - X265].mkv',
+        'Another Show/YS - 01  [Bluray - 1080p - Ar - X265].mkv',
       );
       expect(result, isNotNull, reason: 'Should detect YS as episode');
       expect(result!.episodeNumberStart, 1);
     });
 
     test('detects Spaced Show with spaced acronym', () {
-      // F:\Anime\Spaced Show\[AnimeSanka.com] S E - 01 [BLURAY - 720P - AR - X265].mkv
+      // F:\Anime\Spaced Show\S E - 01 [BLURAY - 720P - AR - X265].mkv
       final result = scanner.extractEpisodeInfo(
-        'Spaced Show/[AnimeSanka.com] S E - 01 [BLURAY - 720P - AR - X265].mkv',
+        'Spaced Show/S E - 01 [BLURAY - 720P - AR - X265].mkv',
       );
       expect(result, isNotNull, reason: 'Should detect S E as episode');
       expect(result!.episodeNumberStart, 1);
@@ -315,6 +315,15 @@ void main() {
       expect(result, isNotNull);
       expect(result!.seasonNumber, 1);
       expect(result.episodeNumberStart, 12);
+    });
+    test('should prioritize EP26 over 1080 inside brackets', () {
+      // TDA EP26 END [BD - 1080p - X265].mkv
+      final result = scanner.extractEpisodeInfo(
+        'TDA/TDA EP26 END [BD - 1080p - X265].mkv',
+      );
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 26); // Should be 26, not 1080
     });
   });
 }

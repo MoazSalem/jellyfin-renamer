@@ -245,20 +245,6 @@ class MediaScanner {
     final parentDirName = path.basename(path.dirname(filePath));
     _logger.debug('fileName: $fileName, parentDirName: $parentDirName');
 
-    // Pattern: Anime Release Group [Group] Title - 01 [Tags]
-    // Check this FIRST as it is very specific and high confidence.
-    // This avoids issues where other patterns (like 3-digit) match parts of the tags (e.g. x.264 -> 264).
-    if (RegExp(r'^\[.+?\]\s*.+?\s*-\s*\d{1,4}').hasMatch(fileName)) {
-      _logger.debug('Matched Anime Release Group pattern.');
-      // Extract the episode number from the pattern
-      final match = RegExp(r'-\s*(\d{1,4})').firstMatch(fileName);
-      if (match != null) {
-        final episodeNum = int.parse(match.group(1)!);
-        final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
-        return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
-      }
-    }
-
     // SxxExx Patterns (most specific first)
     // Pattern 1: S01E01-E02 or S01E01-02 (separator is mandatory)
     final multiEpMatch = RegExp(
@@ -289,25 +275,6 @@ class MediaScanner {
       return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
     }
 
-    // 3-Digit Patterns
-    // Pattern 3: 323-324 or 323-24
-    final threeDigitMultiMatch = RegExp(
-      r'\b(\d{1,2})(\d{2})[-_](?:\d{1,2})?(\d{2})\b',
-    ).firstMatch(fileName);
-    if (threeDigitMultiMatch != null) {
-      _logger.debug('Matched 3-digit multi-episode pattern.');
-      final seasonNum = int.parse(threeDigitMultiMatch.group(1)!);
-      final startEp = int.parse(threeDigitMultiMatch.group(2)!);
-      final endEp = int.parse(threeDigitMultiMatch.group(3)!);
-      if (seasonNum > 0 && startEp > 0 && endEp > 0) {
-        return Episode(
-          seasonNumber: seasonNum,
-          episodeNumberStart: startEp,
-          episodeNumberEnd: endEp,
-        );
-      }
-    }
-
     // Pattern 4: EP/E pattern (check before 3-digit to avoid false matches)
     // Matches: EP 05, E05, e3, الحلقة 1, etc.
     final ePatternMatch = RegExp(
@@ -327,6 +294,43 @@ class MediaScanner {
       // If no season in folder, assume season 1
       return Episode(seasonNumber: 1, episodeNumberStart: episodeNum);
     }
+
+    // Pattern: Anime Release Group [Group] Title - 01 [Tags]
+    // Check this FIRST as it is very specific and high confidence.
+    // This avoids issues where other patterns (like 3-digit) match parts of the tags (e.g. x.264 -> 264).
+    if (RegExp(r'^\[.+?\]\s*.+?\s*-\s*\d{1,4}').hasMatch(fileName)) {
+      _logger.debug('Matched Anime Release Group pattern.');
+      // Extract the episode number from the pattern
+      final match = RegExp(r'-\s*(\d{1,4})').firstMatch(fileName);
+      if (match != null) {
+        final episodeNum = int.parse(match.group(1)!);
+        final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
+        return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
+      }
+    }
+
+
+
+    // 3-Digit Patterns
+    // Pattern 3: 323-324 or 323-24
+    final threeDigitMultiMatch = RegExp(
+      r'\b(\d{1,2})(\d{2})[-_](?:\d{1,2})?(\d{2})\b',
+    ).firstMatch(fileName);
+    if (threeDigitMultiMatch != null) {
+      _logger.debug('Matched 3-digit multi-episode pattern.');
+      final seasonNum = int.parse(threeDigitMultiMatch.group(1)!);
+      final startEp = int.parse(threeDigitMultiMatch.group(2)!);
+      final endEp = int.parse(threeDigitMultiMatch.group(3)!);
+      if (seasonNum > 0 && startEp > 0 && endEp > 0) {
+        return Episode(
+          seasonNumber: seasonNum,
+          episodeNumberStart: startEp,
+          episodeNumberEnd: endEp,
+        );
+      }
+    }
+
+
 
     // Pattern 5: 101 (single) - 3-digit episode code
     final threeDigitMatch = RegExp(
