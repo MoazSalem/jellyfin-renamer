@@ -120,6 +120,10 @@ class MediaScanner {
       final subtitleEpisode =
           'S${subtitleEpisodeMatch.group(1)}E${subtitleEpisodeMatch.group(2)}';
       if (videoEpisode == subtitleEpisode) return true;
+      // If both have SxxExx but they are DIFFERENT, return false immediately.
+      // This prevents falling through to "Common words matching" which might
+      // match them based on the show name.
+      return false;
     }
 
     // Check if they have the same episode code
