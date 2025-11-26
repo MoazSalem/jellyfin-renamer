@@ -438,6 +438,36 @@ class MediaScanner {
        }
     }
 
+    // Pattern 9: Concatenated Show Name + Number (e.g. YakusokunoNeverland10)
+    // Normalize parent directory name by removing all non-alphanumeric characters
+    final normalizedParent = parentDirName.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toLowerCase();
+    final normalizedFile = fileName.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toLowerCase();
+
+    if (normalizedFile.startsWith(normalizedParent)) {
+       _logger.debug('Matched concatenated show name pattern.');
+       // Extract the remainder
+       final remainder = normalizedFile.substring(normalizedParent.length);
+       // Look for a number at the start of the remainder, or if the remainder IS a number
+       // e.g. YakusokunoNeverland10 -> remainder "10"
+       // e.g. YakusokunoNeverlandEND12 -> remainder "end12"
+
+       // Check if remainder starts with a number
+       final startNumberMatch = RegExp(r'^(\d{1,3})').firstMatch(remainder);
+       if (startNumberMatch != null) {
+          final episodeNum = int.parse(startNumberMatch.group(1)!);
+          final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
+          return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
+       }
+
+       // Check if remainder ends with a number (e.g. END12)
+       final endNumberMatch = RegExp(r'(\d{1,3})$').firstMatch(remainder);
+       if (endNumberMatch != null) {
+          final episodeNum = int.parse(endNumberMatch.group(1)!);
+          final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
+          return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
+       }
+    }
+
     return null;
   }
 
