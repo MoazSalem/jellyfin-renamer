@@ -184,5 +184,15 @@ void main() {
       expect(result.episodeNumberStart, 1);
       expect(result.episodeNumberEnd, isNull);
     });
+
+    test('should parse "bracketed episode numbers" format', () {
+      final result = scanner.extractEpisodeInfo(
+        'DKnN [01].mkv',
+      );
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 1); // Default to season 1
+      expect(result.episodeNumberStart, 1);
+      expect(result.episodeNumberEnd, isNull);
+    });
   });
 }

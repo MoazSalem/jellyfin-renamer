@@ -315,6 +315,18 @@ class MediaScanner {
       }
     }
 
+    // Pattern: Bracketed number [01]
+    final bracketedMatch = RegExp(r'\[(\d{1,3})\]').firstMatch(fileName);
+    if (bracketedMatch != null) {
+      _logger.debug('Matched bracketed number pattern.');
+      final num = int.parse(bracketedMatch.group(1)!);
+      // Avoid matching years (e.g. [2023])
+      if (num < 1900) {
+        final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
+        return Episode(seasonNumber: seasonNum, episodeNumberStart: num);
+      }
+    }
+
     // Season Folder Context Patterns
     final seasonNum = extractSeasonFromDirName(parentDirName);
     if (seasonNum != null) {
@@ -415,6 +427,15 @@ class MediaScanner {
       caseSensitive: false,
     ).hasMatch(fileName)) {
       return MediaType.tvShow;
+    }
+
+    // Pattern: Bracketed number [01]
+    final bracketedMatch = RegExp(r'\[(\d{1,3})\]').firstMatch(fileName);
+    if (bracketedMatch != null) {
+      final num = int.parse(bracketedMatch.group(1)!);
+      if (num < 1900) {
+        return MediaType.tvShow;
+      }
     }
 
     // 2. Season folder context (unambiguous TV)
