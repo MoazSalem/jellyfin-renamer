@@ -21,7 +21,7 @@ class MediaScanner {
   ///
   /// Returns a list of [MediaItem] objects containing detected media files
   /// and their associated subtitle files.
-  Future<List<MediaItem>> scanDirectory(String rootPath) async {
+  Future<ScanResult> scanDirectory(String rootPath) async {
     final videoFiles = <String>[];
     final subtitleFiles = <String>[];
     final rootDir = Directory(rootPath);
@@ -44,6 +44,8 @@ class MediaScanner {
 
     // Process video files and associate subtitles
     final items = <MediaItem>[];
+    final associatedSubtitlePaths = <String>{};
+
     for (final videoPath in videoFiles) {
       final mediaItem = await _analyzeFile(videoPath, rootPath);
       if (mediaItem != null) {
@@ -52,6 +54,8 @@ class MediaScanner {
           videoPath,
           subtitleFiles,
         );
+        associatedSubtitlePaths.addAll(associatedSubtitles);
+        
         final mediaItemWithSubtitles = mediaItem.copyWith(
           subtitlePaths: associatedSubtitles,
         );
@@ -59,7 +63,11 @@ class MediaScanner {
       }
     }
 
-    return items;
+    final unassociatedSubtitles = subtitleFiles
+        .where((path) => !associatedSubtitlePaths.contains(path))
+        .toList();
+
+    return ScanResult(items: items, unassociatedSubtitles: unassociatedSubtitles);
   }
 
   bool _isVideoFile(String filePath) {

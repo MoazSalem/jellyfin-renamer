@@ -35,7 +35,8 @@ class ScanCommand extends Command<void> {
     _logger.info('Scanning directory: $path');
 
     try {
-      final items = await scanner.scanDirectory(path);
+      final scanResult = await scanner.scanDirectory(path);
+      final items = scanResult.items;
 
       _logger.info('Found ${items.length} media items:');
       for (final item in items) {
@@ -45,6 +46,13 @@ class ScanCommand extends Command<void> {
           for (final subtitlePath in item.subtitlePaths) {
             _logger.info('      $subtitlePath');
           }
+        }
+      }
+
+      if (scanResult.unassociatedSubtitles.isNotEmpty) {
+        _logger.info('\nUnassociated Subtitles (${scanResult.unassociatedSubtitles.length}):');
+        for (final sub in scanResult.unassociatedSubtitles) {
+          _logger.info('  $sub');
         }
       }
     } on Object catch (e) {
@@ -120,7 +128,29 @@ class RenameCommand extends Command<void> {
 
     try {
       _logger.info('Scanning directory: $path');
-      final items = await scanner.scanDirectory(path);
+      final scanResult = await scanner.scanDirectory(path);
+      final items = scanResult.items;
+
+      // Check for undetected items
+      final unknownVideos = items.where((i) => i.type == MediaType.unknown).toList();
+      final tvShowsWithoutEpisodes = items.where((i) => i.type == MediaType.tvShow && i.episode == null).toList();
+      
+      if (unknownVideos.isNotEmpty || tvShowsWithoutEpisodes.isNotEmpty || scanResult.unassociatedSubtitles.isNotEmpty) {
+          _logger.info('\n⚠️  UNDETECTED ITEMS ⚠️');
+          if (unknownVideos.isNotEmpty) {
+              _logger.info('Unknown Videos (${unknownVideos.length}):');
+              for (final item in unknownVideos) _logger.info('  ${item.path}');
+          }
+          if (tvShowsWithoutEpisodes.isNotEmpty) {
+              _logger.info('TV Shows with no episode info (${tvShowsWithoutEpisodes.length}):');
+              for (final item in tvShowsWithoutEpisodes) _logger.info('  ${item.path}');
+          }
+          if (scanResult.unassociatedSubtitles.isNotEmpty) {
+              _logger.info('Unassociated Subtitles (${scanResult.unassociatedSubtitles.length}):');
+              for (final sub in scanResult.unassociatedSubtitles) _logger.info('  $sub');
+          }
+          _logger.info('---------------------------------------------------\n');
+      }
 
       _logger.info('Processing ${items.length} media items...');
 
@@ -214,7 +244,29 @@ class RenameSingleCommand extends Command<void> {
 
     try {
       _logger.info('Scanning directory: $path');
-      final items = await scanner.scanDirectory(path);
+      final scanResult = await scanner.scanDirectory(path);
+      final items = scanResult.items;
+
+      // Check for undetected items
+      final unknownVideos = items.where((i) => i.type == MediaType.unknown).toList();
+      final tvShowsWithoutEpisodes = items.where((i) => i.type == MediaType.tvShow && i.episode == null).toList();
+      
+      if (unknownVideos.isNotEmpty || tvShowsWithoutEpisodes.isNotEmpty || scanResult.unassociatedSubtitles.isNotEmpty) {
+          _logger.info('\n⚠️  UNDETECTED ITEMS ⚠️');
+          if (unknownVideos.isNotEmpty) {
+              _logger.info('Unknown Videos (${unknownVideos.length}):');
+              for (final item in unknownVideos) _logger.info('  ${item.path}');
+          }
+          if (tvShowsWithoutEpisodes.isNotEmpty) {
+              _logger.info('TV Shows with no episode info (${tvShowsWithoutEpisodes.length}):');
+              for (final item in tvShowsWithoutEpisodes) _logger.info('  ${item.path}');
+          }
+          if (scanResult.unassociatedSubtitles.isNotEmpty) {
+              _logger.info('Unassociated Subtitles (${scanResult.unassociatedSubtitles.length}):');
+              for (final sub in scanResult.unassociatedSubtitles) _logger.info('  $sub');
+          }
+          _logger.info('---------------------------------------------------\n');
+      }
 
       if (items.isEmpty) {
         _logger.info('No media items found in $path');

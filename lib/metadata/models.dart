@@ -71,6 +71,21 @@ class MediaItem {
   }
 }
 
+/// Result of a media scan operation.
+class ScanResult {
+  /// Creates a new scan result.
+  ScanResult({
+    required this.items,
+    required this.unassociatedSubtitles,
+  });
+
+  /// List of detected media items.
+  final List<MediaItem> items;
+
+  /// List of subtitle files that were not associated with any video.
+  final List<String> unassociatedSubtitles;
+}
+
 /// Represents a movie with its metadata.
 @JsonSerializable()
 class Movie {
