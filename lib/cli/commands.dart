@@ -16,7 +16,7 @@ class ScanCommand extends Command<void> {
       'path',
       abbr: 'p',
       help: 'Root directory to scan',
-      mandatory: true,
+      mandatory: false,
     );
   }
 
@@ -29,7 +29,7 @@ class ScanCommand extends Command<void> {
 
   @override
   Future<void> run() async {
-    final path = argResults?['path'] as String;
+    final path = argResults?['path'] as String? ?? Directory.current.path;
 
     final scanner = MediaScanner(logger: _logger);
     _logger.info('Scanning directory: $path');
@@ -63,7 +63,7 @@ class RenameCommand extends Command<void> {
         'path',
         abbr: 'p',
         help: 'Root directory to process',
-        mandatory: true,
+        mandatory: false,
       )
       ..addFlag(
         'dry-run',
@@ -93,7 +93,7 @@ class RenameCommand extends Command<void> {
 
   @override
   Future<void> run() async {
-    var path = argResults?['path'] as String;
+    var path = argResults?['path'] as String? ?? Directory.current.path;
     final rest = argResults?.rest;
 
     // Handle unquoted paths with spaces (e.g. -p Part1 Part2)
@@ -157,7 +157,7 @@ class RenameSingleCommand extends Command<void> {
         'path',
         abbr: 'p',
         help: 'Path to the show or movie folder',
-        mandatory: true,
+        mandatory: false,
       )
       ..addFlag(
         'dry-run',
@@ -187,7 +187,7 @@ class RenameSingleCommand extends Command<void> {
 
   @override
   Future<void> run() async {
-    var path = argResults?['path'] as String;
+    var path = argResults?['path'] as String? ?? Directory.current.path;
     final rest = argResults?.rest;
 
     // Handle unquoted paths with spaces (e.g. -p Part1 Part2)
