@@ -426,8 +426,23 @@ class MediaRenamer {
 
     for (final dir in sourceDirs) {
       if (await _isDirectoryEmpty(dir)) {
-        await Directory(dir).delete(recursive: true);
-        _logger.info('Deleted empty directory: $dir');
+        // Check if this is the current working directory
+        final normalizedDir = path.canonicalize(dir);
+        final normalizedCwd = path.canonicalize(Directory.current.path);
+        
+        if (normalizedDir == normalizedCwd) {
+          _logger.warning('Skipping deletion of empty directory because it is the current working directory: $dir');
+          continue;
+        } else {
+           _logger.debug('Directory $dir ($normalizedDir) is not CWD ($normalizedCwd)');
+        }
+
+        try {
+          await Directory(dir).delete(recursive: true);
+          _logger.info('Deleted empty directory: $dir');
+        } on FileSystemException catch (e) {
+          _logger.warning('Failed to delete empty directory $dir: ${e.message}');
+        }
       }
     }
   }
