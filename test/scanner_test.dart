@@ -234,5 +234,62 @@ void main() {
       expect(result!.seasonNumber, 1);
       expect(result.episodeNumberStart, 1);
     });
+
+    test('detects My Show S2 with acronym', () {
+      // F:\Anime\My Show S2\[Anime-Sanka.com][AnimeSanka.xyz] MS S2 - 01 [Web-DL - 1080p - X265].mkv
+      final result = scanner.extractEpisodeInfo(
+        'My Show S2/[Anime-Sanka.com][AnimeSanka.xyz] MS S2 - 01 [Web-DL - 1080p - X265].mkv',
+      );
+      expect(result, isNotNull, reason: 'Should detect MS S2 as episode');
+      expect(result!.seasonNumber, 2);
+      expect(result.episodeNumberStart, 1);
+    });
+
+    test('detects My Japanese Show with Japanese acronym', () {
+      // F:\Anime\my japanese show\[Anime-Sanka.com][AnimeSanka.xyz] WaShKe - 01 [Web-DL - 1080p - X265].mkv
+      final result = scanner.extractEpisodeInfo(
+        'my japanese show/[Anime-Sanka.com][AnimeSanka.xyz] WaShKe - 01 [Web-DL - 1080p - X265].mkv',
+      );
+      expect(result, isNotNull, reason: 'Should detect WaShKe as episode');
+      expect(result!.episodeNumberStart, 1);
+    });
+
+    test('detects My Other Show S2 with short acronym', () {
+      // F:\Anime\My Other Show Season 2\[AnimeSanka.com] O S2 - 01 [Bluray - 1080p - Ar - X265].mkv
+      final result = scanner.extractEpisodeInfo(
+        'My Other Show Season 2/[AnimeSanka.com] O S2 - 01 [Bluray - 1080p - Ar - X265].mkv',
+      );
+      expect(result, isNotNull, reason: 'Should detect O S2 as episode');
+      expect(result!.seasonNumber, 2);
+      expect(result.episodeNumberStart, 1);
+    });
+
+    test('detects Another Show with acronym', () {
+      // F:\Anime\Another Show\[AnimeSanka.com] YS - 01  [Bluray - 1080p - Ar - X265].mkv
+      final result = scanner.extractEpisodeInfo(
+        'Another Show/[AnimeSanka.com] YS - 01  [Bluray - 1080p - Ar - X265].mkv',
+      );
+      expect(result, isNotNull, reason: 'Should detect YS as episode');
+      expect(result!.episodeNumberStart, 1);
+    });
+
+    test('detects Spaced Show with spaced acronym', () {
+      // F:\Anime\Spaced Show\[AnimeSanka.com] S E - 01 [BLURAY - 720P - AR - X265].mkv
+      final result = scanner.extractEpisodeInfo(
+        'Spaced Show/[AnimeSanka.com] S E - 01 [BLURAY - 720P - AR - X265].mkv',
+      );
+      expect(result, isNotNull, reason: 'Should detect S E as episode');
+      expect(result!.episodeNumberStart, 1);
+    });
+
+    test('detects Simple Show with simple numbering', () {
+      // F:\Anime\Simple Show\001.mp4
+      // Note: extractEpisodeInfo expects full path for context
+      final result = scanner.extractEpisodeInfo(
+        'Simple Show/001.mp4',
+      );
+      expect(result, isNotNull, reason: 'Should detect 001 as episode');
+      expect(result!.episodeNumberStart, 1);
+    });
   });
 }

@@ -322,8 +322,17 @@ class MediaScanner {
       _logger.debug('Matched 3-digit single episode pattern.');
       final seasonNum = int.parse(threeDigitMatch.group(1)!);
       final episodeNum = int.parse(threeDigitMatch.group(2)!);
-      if (seasonNum > 0 && seasonNum < 50 && episodeNum > 0) {
-        return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
+      
+      // Allow season 0 (e.g. 001 -> S00E01 or just E01?)
+      // Usually 001 is absolute numbering E01.
+      // If seasonNum is 0, we can default to Season 1 for absolute numbering convenience?
+      // Or keep it as Season 0 (Specials).
+      // Let's assume Season 1 if seasonNum is 0, unless it's explicitly S00.
+      // But here we parsed '0' from '001'.
+      final effectiveSeason = seasonNum == 0 ? 1 : seasonNum;
+
+      if (seasonNum >= 0 && seasonNum < 50 && episodeNum > 0) {
+        return Episode(seasonNumber: effectiveSeason, episodeNumberStart: episodeNum);
       }
     }
 
@@ -405,6 +414,14 @@ class MediaScanner {
        final episodeNum = int.parse(titleEpisodeMatch.group(2)!);
 
        // Verify against parent directory to be safe
+       // UNLESS it matches the "Anime Release Group" pattern, which is high confidence.
+       // Pattern: [Group] Title - 01 [Tags]
+       if (RegExp(r'^\[.+?\]\s*.+?\s*-\s*\d{1,4}').hasMatch(fileName)) {
+          _logger.debug('Matched Anime Release Group pattern, bypassing fuzzy check.');
+          final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
+          return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
+       }
+
        if (_isFuzzyMatch(titlePart, parentDirName)) {
           final seasonNum = extractSeasonFromDirName(parentDirName);
           if (seasonNum != null) {
@@ -447,6 +464,11 @@ class MediaScanner {
       }
     }
 
+    // Pattern: Anime Release Group [Group] Title - 01 [Tags]
+    if (RegExp(r'^\[.+?\]\s*.+?\s*-\s*\d{1,4}').hasMatch(fileName)) {
+      return MediaType.tvShow;
+    }
+
     // 2. Season folder context (unambiguous TV)
     if (extractSeasonFromDirName(parentDirName) != null) {
       // Check for numbered files inside
@@ -464,12 +486,19 @@ class MediaScanner {
       return MediaType.movie;
     }
 
+    // 3b. Movie keyword
+    if (RegExp(r'\bmovie\b', caseSensitive: false).hasMatch(fileName)) {
+      return MediaType.movie;
+    }
+
     // 4. 3-digit episode patterns (now less ambiguous)
     if (RegExp(r'\b\d{3,4}\b').hasMatch(fileName)) {
       final match = RegExp(r'\b(\d{1,2})(\d{2})\b').firstMatch(fileName);
       if (match != null) {
         final seasonNum = int.parse(match.group(1)!);
-        if (seasonNum > 0 && seasonNum < 50) {
+        // Allow season 0 (specials) or just treat 0 as season 1 if needed?
+        // For 001, seasonNum is 0.
+        if (seasonNum >= 0 && seasonNum < 50) {
           return MediaType.tvShow;
         }
       }

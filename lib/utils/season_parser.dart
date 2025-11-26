@@ -144,7 +144,7 @@ int? extractSeasonFromDirName(String dirName) {
   final lowerDirName = dirName.toLowerCase();
 
   final seasonMatch = RegExp(
-    r'^(?:season\s*|s|الموسم\s*)(\d+)$',
+    r'(?:season\s*|s|الموسم\s*)(\d+)$',
     caseSensitive: false,
   ).firstMatch(lowerDirName);
   if (seasonMatch != null) {
