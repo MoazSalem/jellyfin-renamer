@@ -48,6 +48,7 @@ class MediaRenamer {
     bool dryRun = false,
     bool interactive = true,
   }) async {
+    print('processItems called with ${items.length} items. dryRun=$dryRun, interactive=$interactive');
     _scanRoot = scanRoot;
     _plannedOperations.clear();
 
@@ -398,24 +399,27 @@ class MediaRenamer {
   Future<void> _executeOperations() async {
     // Group operations by directories to create them first
     final directories = <String>{};
+    print('Planned operations: ${_plannedOperations.length}');
 
     for (final op in _plannedOperations) {
       final dir = path.dirname(op.targetPath);
-      directories.add(dir);
-    }
+             _logger.warning('Target file already exists: $targetPath. Appending suffix.');
+             // Find unique name
+             var counter = 1;
+             final ext = path.extension(targetPath);
+             final base = path.withoutExtension(targetPath);
+             while (File(targetPath).existsSync()) {
+                 targetPath = '$base ($counter)$ext';
+                 counter++;
+             }
+         }
+      }
 
-    // Create all directories
-    for (final dir in directories) {
-      await Directory(dir).create(recursive: true);
-    }
-
-    // Execute renames
-    for (final op in _plannedOperations) {
       final logger = _getLoggerForOperation(op);
       if (logger != null) {
-        await logger.logRename(op.sourcePath, op.targetPath);
+        await logger.logRename(op.sourcePath, targetPath);
       }
-      await File(op.sourcePath).rename(op.targetPath);
+      await sourceFile.rename(targetPath);
     }
 
     // Clean up empty source directories

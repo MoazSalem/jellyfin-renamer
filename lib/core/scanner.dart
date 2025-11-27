@@ -566,6 +566,10 @@ class MediaScanner {
     if (RegExp(r'\bmovie\b', caseSensitive: false).hasMatch(fileName)) {
       return MediaType.movie;
     }
+    // Arabic Movie keyword
+    if (fileName.contains('فلم')) {
+      return MediaType.movie;
+    }
 
     // 4. 3-digit episode patterns (now less ambiguous)
     if (RegExp(r'\b\d{3,4}\b').hasMatch(fileName)) {
