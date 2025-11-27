@@ -431,7 +431,7 @@ class MediaRenamer {
         final normalizedCwd = path.canonicalize(Directory.current.path);
         
         if (normalizedDir == normalizedCwd) {
-          _logger.warning('Skipping deletion of empty directory because it is the current working directory: $dir');
+          _logger.info('\n⚠️  Skipping deletion of empty directory because it is the current working directory: $dir\n');
           continue;
         } else {
            _logger.debug('Directory $dir ($normalizedDir) is not CWD ($normalizedCwd)');

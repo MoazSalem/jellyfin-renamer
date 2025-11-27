@@ -308,6 +308,24 @@ void main() {
       expect(result.episodeNumberStart, 10);
     });
 
+    test('should detect episode number in parentheses (Show Name (1))', () {
+      final result = scanner.extractEpisodeInfo(
+        'Show Name/Show Name (1).mkv',
+      );
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 1);
+    });
+
+    test('should detect episode number in parentheses with fractional (Show Name (1.5))', () {
+      final result = scanner.extractEpisodeInfo(
+        'Show Name/Show Name (1.5).mkv',
+      );
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 1.5);
+    });
+
     test('should detect episode with END suffix', () {
       final result = scanner.extractEpisodeInfo(
         'My Show/MyShowEND12.mp4',

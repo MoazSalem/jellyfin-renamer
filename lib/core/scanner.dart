@@ -459,14 +459,26 @@ class MediaScanner {
        }
     }
 
-    // Pattern 10: Absolute Numbering Fallback (e.g. 100.mp4, 1000.mp4)
-    // If the file is JUST a number, and it wasn't caught by Pattern 5 (SSEE logic),
-    // it's likely an absolute episode number (especially for long running shows).
+    // 10. Absolute Numbering Fallback (e.g. 100.mp4, 1000.mp4)
     if (RegExp(r'^\d{1,4}(?:\.\d{1,2})?$').hasMatch(fileName)) {
        _logger.debug('Matched absolute numbering fallback.');
        final episodeNum = num.parse(fileName);
        final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
        return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
+    }
+
+    // 11. Parenthesized Number (e.g. Show Name (1))
+    final parenMatch = RegExp(r'^(.+?)\s*\((\d{1,4}(?:\.\d+)?)\)(?:[^\/]*)$').firstMatch(fileName);
+    if (parenMatch != null) {
+        final numberStr = parenMatch.group(2)!;
+        final number = num.parse(numberStr);
+        // Simple heuristic: if > 1900 and < 2100, likely a year, ignore.
+        if (number < 1900 || number > 2100) {
+             return Episode(
+                seasonNumber: 1,
+                episodeNumberStart: number,
+             );
+        }
     }
 
     return null;
