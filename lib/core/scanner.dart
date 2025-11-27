@@ -55,7 +55,7 @@ class MediaScanner {
           subtitleFiles,
         );
         associatedSubtitlePaths.addAll(associatedSubtitles);
-        
+
         final mediaItemWithSubtitles = mediaItem.copyWith(
           subtitlePaths: associatedSubtitles,
         );
@@ -67,7 +67,10 @@ class MediaScanner {
         .where((path) => !associatedSubtitlePaths.contains(path))
         .toList();
 
-    return ScanResult(items: items, unassociatedSubtitles: unassociatedSubtitles);
+    return ScanResult(
+      items: items,
+      unassociatedSubtitles: unassociatedSubtitles,
+    );
   }
 
   bool _isVideoFile(String filePath) {
@@ -297,19 +300,22 @@ class MediaScanner {
 
     // Pattern: Anime Release Group [Group] Title - 01 [Tags]
     // Check this FIRST as it is very specific and high confidence.
-    // This avoids issues where other patterns (like 3-digit) match parts of the tags (e.g. x.264 -> 264).
-    if (RegExp(r'^\[.+?\]\s*.+?\s*-\s*\d{1,4}(?:\.\d{1,2})?(?!\d)').hasMatch(fileName)) {
+    // This avoids issues where other patterns (like 3-digit) match parts of the
+    // tags (e.g. x.264 -> 264).
+    if (RegExp(
+      r'^\[.+?\]\s*.+?\s*-\s*\d{1,4}(?:\.\d{1,2})?(?!\d)',
+    ).hasMatch(fileName)) {
       _logger.debug('Matched Anime Release Group pattern.');
       // Extract the episode number from the pattern
-      final match = RegExp(r'-\s*(\d{1,4}(?:\.\d{1,2})?)(?!\d)').firstMatch(fileName);
+      final match = RegExp(
+        r'-\s*(\d{1,4}(?:\.\d{1,2})?)(?!\d)',
+      ).firstMatch(fileName);
       if (match != null) {
         final episodeNum = num.parse(match.group(1)!);
         final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
         return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
       }
     }
-
-
 
     // 3-Digit Patterns
     // Pattern 3: 323-324 or 323-24
@@ -325,7 +331,10 @@ class MediaScanner {
         // Validate against season folder if present
         final folderSeason = extractSeasonFromDirName(parentDirName);
         if (folderSeason != null && folderSeason != seasonNum) {
-          _logger.debug('Skipping 3-digit pattern because folder season ($folderSeason) mismatches parsed season ($seasonNum).');
+          _logger.debug(
+            'Skipping 3-digit pattern because folder season ($folderSeason) '
+            'mismatches parsed season ($seasonNum).',
+          );
         } else {
           return Episode(
             seasonNumber: seasonNum,
@@ -336,8 +345,6 @@ class MediaScanner {
       }
     }
 
-
-
     // Pattern 5: 101 (single) - 3-digit episode code
     final threeDigitMatch = RegExp(
       r'\b(\d{1,2})(\d{2})\b',
@@ -346,11 +353,11 @@ class MediaScanner {
       _logger.debug('Matched 3-digit single episode pattern.');
       final seasonNum = int.parse(threeDigitMatch.group(1)!);
       final episodeNum = int.parse(threeDigitMatch.group(2)!);
-      
+
       // Allow season 0 (e.g. 001 -> S00E01 or just E01?)
       // Usually 001 is absolute numbering E01.
-      // If seasonNum is 0, we can default to Season 1 for absolute numbering convenience?
-      // Or keep it as Season 0 (Specials).
+      // If seasonNum is 0, we can default to Season 1 for absolute numbering
+      // convenience? Or keep it as Season 0 (Specials).
       // Let's assume Season 1 if seasonNum is 0, unless it's explicitly S00.
       // But here we parsed '0' from '001'.
       final effectiveSeason = seasonNum == 0 ? 1 : seasonNum;
@@ -365,18 +372,24 @@ class MediaScanner {
         // Then it falls through to Season Context.
         // Season Context sees "Season 1", matches "001" as 1. Result: S1 E1.
         // Same result.
-        
+
         // If 101 in Season 1: seasonNum=1, folderSeason=1. Match.
         // Result: S1 E1.
-        
+
         // If 101 in Season 2: seasonNum=1, folderSeason=2. Mismatch. Skip.
         // Fall through to Season Context.
-        // Season Context sees "Season 2", matches "101" as 101. Result: S2 E101.
-        
+        // Season Context sees "Season 2", matches "101" as 101. Result: S2 E101
+
         if (folderSeason != null && folderSeason != seasonNum) {
-           _logger.debug('Skipping 3-digit pattern because folder season ($folderSeason) mismatches parsed season ($seasonNum).');
+          _logger.debug(
+            'Skipping 3-digit pattern because folder season ($folderSeason)'
+            ' mismatches parsed season ($seasonNum).',
+          );
         } else {
-           return Episode(seasonNumber: effectiveSeason, episodeNumberStart: episodeNum);
+          return Episode(
+            seasonNumber: effectiveSeason,
+            episodeNumberStart: episodeNum,
+          );
         }
       }
     }
@@ -416,7 +429,9 @@ class MediaScanner {
       }
 
       // Pattern 6b: 12 (single)
-      final episodeFileMatch = RegExp(r'^(\d{1,3}(?:\.\d{1,2})?)$').firstMatch(fileName);
+      final episodeFileMatch = RegExp(
+        r'^(\d{1,3}(?:\.\d{1,2})?)$',
+      ).firstMatch(fileName);
       if (episodeFileMatch != null) {
         _logger.debug('Matched single episode pattern in season folder.');
         final episodeNum = num.parse(episodeFileMatch.group(1)!);
@@ -426,11 +441,13 @@ class MediaScanner {
       // Pattern 6c: Attached number (e.g. ShingekinoKyojin1)
       // Only if we are in a season folder, we can be more aggressive.
       // We look for a number at the very end of the string.
-      final attachedNumberMatch = RegExp(r'(\d{1,3}(?:\.\d{1,2})?)$').firstMatch(fileName);
+      final attachedNumberMatch = RegExp(
+        r'(\d{1,3}(?:\.\d{1,2})?)$',
+      ).firstMatch(fileName);
       if (attachedNumberMatch != null) {
-         _logger.debug('Matched attached number pattern in season folder.');
-         final episodeNum = num.parse(attachedNumberMatch.group(1)!);
-         return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
+        _logger.debug('Matched attached number pattern in season folder.');
+        final episodeNum = num.parse(attachedNumberMatch.group(1)!);
+        return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
       }
 
       _logger.debug('No episode number match in filename for season folder.');
@@ -453,59 +470,68 @@ class MediaScanner {
     }
 
     // Pattern 8: Title-Episode pattern (e.g., "Show Name - 01 [Extra]")
-    final titleEpisodeMatch = RegExp(r'^(.+?)[-\s_]+(\d{1,3}(?:\.\d{1,2})?)(?!\d)(?:[-\s_\[\(].*)?$').firstMatch(fileName);
+    final titleEpisodeMatch = RegExp(
+      r'^(.+?)[-\s_]+(\d{1,3}(?:\.\d{1,2})?)(?!\d)(?:[-\s_\[\(].*)?$',
+    ).firstMatch(fileName);
     if (titleEpisodeMatch != null) {
-       final titlePart = titleEpisodeMatch.group(1)!.trim();
-       final episodeNum = num.parse(titleEpisodeMatch.group(2)!);
+      final titlePart = titleEpisodeMatch.group(1)!.trim();
+      final episodeNum = num.parse(titleEpisodeMatch.group(2)!);
 
-       // Verify against parent directory to be safe
-       if (_isFuzzyMatch(titlePart, parentDirName)) {
-          final seasonNum = extractSeasonFromDirName(parentDirName);
-          if (seasonNum != null) {
-            return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
-          }
-          // Assume season 1 if not otherwise specified
-          return Episode(seasonNumber: 1, episodeNumberStart: episodeNum);
-       }
+      // Verify against parent directory to be safe
+      if (_isFuzzyMatch(titlePart, parentDirName)) {
+        final seasonNum = extractSeasonFromDirName(parentDirName);
+        if (seasonNum != null) {
+          return Episode(
+            seasonNumber: seasonNum,
+            episodeNumberStart: episodeNum,
+          );
+        }
+        // Assume season 1 if not otherwise specified
+        return Episode(seasonNumber: 1, episodeNumberStart: episodeNum);
+      }
     }
 
     // Pattern 9: Concatenated Show Name + Number (e.g. YakusokunoNeverland10)
-    // Refined to handle fuzzy matches (e.g. NarutoShippuuden vs Naruto shippuden)
+    // Refined to handle fuzzy matches(e.g.NarutoShippuuden vs Naruto shippuden)
     // 1. Try to split filename into Text + Number
-    final concatMatch = RegExp(r'^([a-zA-Z0-9]+?)(\d{1,4}(?:\.\d{1,2})?)(?!\d)(?:END)?$').firstMatch(fileName);
+    final concatMatch = RegExp(
+      r'^([a-zA-Z0-9]+?)(\d{1,4}(?:\.\d{1,2})?)(?!\d)(?:END)?$',
+    ).firstMatch(fileName);
     if (concatMatch != null) {
-       final textPart = concatMatch.group(1)!;
-       final numberPart = concatMatch.group(2)!;
-       
-       // Verify text part matches parent directory
-       if (_isFuzzyMatch(textPart, parentDirName)) {
-          _logger.debug('Matched concatenated show name pattern (fuzzy).');
-          final episodeNum = num.parse(numberPart);
-          final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
-          return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
-       }
+      final textPart = concatMatch.group(1)!;
+      final numberPart = concatMatch.group(2)!;
+
+      // Verify text part matches parent directory
+      if (_isFuzzyMatch(textPart, parentDirName)) {
+        _logger.debug('Matched concatenated show name pattern (fuzzy).');
+        final episodeNum = num.parse(numberPart);
+        final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
+        return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
+      }
     }
 
     // 10. Absolute Numbering Fallback (e.g. 100.mp4, 1000.mp4)
     if (RegExp(r'^\d{1,4}(?:\.\d{1,2})?$').hasMatch(fileName)) {
-       _logger.debug('Matched absolute numbering fallback.');
-       final episodeNum = num.parse(fileName);
-       final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
-       return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
+      _logger.debug('Matched absolute numbering fallback.');
+      final episodeNum = num.parse(fileName);
+      final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
+      return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
     }
 
     // 11. Parenthesized Number (e.g. Show Name (1))
-    final parenMatch = RegExp(r'^(.+?)\s*\((\d{1,4}(?:\.\d+)?)\)(?:[^\/]*)$').firstMatch(fileName);
+    final parenMatch = RegExp(
+      r'^(.+?)\s*\((\d{1,4}(?:\.\d+)?)\)(?:[^\/]*)$',
+    ).firstMatch(fileName);
     if (parenMatch != null) {
-        final numberStr = parenMatch.group(2)!;
-        final number = num.parse(numberStr);
-        // Simple heuristic: if > 1900 and < 2100, likely a year, ignore.
-        if (number < 1900 || number > 2100) {
-             return Episode(
-                seasonNumber: 1,
-                episodeNumberStart: number,
-             );
-        }
+      final numberStr = parenMatch.group(2)!;
+      final number = num.parse(numberStr);
+      // Simple heuristic: if > 1900 and < 2100, likely a year, ignore.
+      if (number < 1900 || number > 2100) {
+        return Episode(
+          seasonNumber: 1,
+          episodeNumberStart: number,
+        );
+      }
     }
 
     return null;
@@ -540,15 +566,35 @@ class MediaScanner {
       }
     }
 
+    // Pattern: Parenthesized number (1) or (01)
+    // Ignore years (1900-2100)
+    final parenMatch = RegExp(r'\((\d{1,4}(?:\.\d+)?)\)').allMatches(fileName);
+    for (final match in parenMatch) {
+      final numStr = match.group(1)!;
+      if (!numStr.contains('.')) {
+        final num = int.parse(numStr);
+        if (num < 1900 || num > 2100) {
+          return MediaType.tvShow;
+        }
+      } else {
+        // Fractional is definitely an episode
+        return MediaType.tvShow;
+      }
+    }
+
     // Pattern: Anime Release Group [Group] Title - 01 [Tags]
-    if (RegExp(r'^\[.+?\]\s*.+?\s*-\s*\d{1,4}(?:\.\d{1,2})?(?!\d)').hasMatch(fileName)) {
+    if (RegExp(
+      r'^\[.+?\]\s*.+?\s*-\s*\d{1,4}(?:\.\d{1,2})?(?!\d)',
+    ).hasMatch(fileName)) {
       return MediaType.tvShow;
     }
 
     // 2. Season folder context (unambiguous TV)
     if (extractSeasonFromDirName(parentDirName) != null) {
       // Check for numbered files inside
-      if (RegExp(r'^\d{1,3}(?:\.\d{1,2})?([-_]\d{1,3}(?:\.\d{1,2})?)?$').hasMatch(fileName)) {
+      if (RegExp(
+        r'^\d{1,3}(?:\.\d{1,2})?([-_]\d{1,3}(?:\.\d{1,2})?)?$',
+      ).hasMatch(fileName)) {
         return MediaType.tvShow;
       }
       // Check for attached number at end (e.g. ShowName1)
@@ -588,34 +634,39 @@ class MediaScanner {
     // This is a heuristic: if the file ends in a number and the prefix
     // matches the parent directory name, it's likely an episode.
     // Allow underscores as separators too.
-    final titleEpisodeMatch = RegExp(r'^(.+?)[-\s_]+(\d{1,3}(?:\.\d{1,2})?)(?!\d)(?:[-\s_\[\(].*)?$').firstMatch(fileName);
+    final titleEpisodeMatch = RegExp(
+      r'^(.+?)[-\s_]+(\d{1,3}(?:\.\d{1,2})?)(?!\d)(?:[-\s_\[\(].*)?$',
+    ).firstMatch(fileName);
     if (titleEpisodeMatch != null) {
       final titlePart = titleEpisodeMatch.group(1)!.trim();
       final numberPart = titleEpisodeMatch.group(2)!;
 
       // Avoid matching years (e.g. "Movie 2023")
-      if (numberPart.length == 4 && (numberPart.startsWith('19') || numberPart.startsWith('20'))) {
+      if (numberPart.length == 4 &&
+          (numberPart.startsWith('19') || numberPart.startsWith('20'))) {
         return MediaType.movie;
       }
 
       // Check for fuzzy match between title part and parent directory
       if (_isFuzzyMatch(titlePart, parentDirName)) {
-         return MediaType.tvShow;
+        return MediaType.tvShow;
       }
     }
 
     // 6. Concatenated Show Name + Number (e.g. YakusokunoNeverland10)
-    final concatMatch = RegExp(r'^([a-zA-Z0-9]+?)(\d{1,4}(?:\.\d{1,2})?)(?!\d)(?:END)?$').firstMatch(fileName);
+    final concatMatch = RegExp(
+      r'^([a-zA-Z0-9]+?)(\d{1,4}(?:\.\d{1,2})?)(?!\d)(?:END)?$',
+    ).firstMatch(fileName);
     if (concatMatch != null) {
-       final textPart = concatMatch.group(1)!;
-       if (_isFuzzyMatch(textPart, parentDirName)) {
-          return MediaType.tvShow;
-       }
+      final textPart = concatMatch.group(1)!;
+      if (_isFuzzyMatch(textPart, parentDirName)) {
+        return MediaType.tvShow;
+      }
     }
 
     // 7. Absolute Numbering Fallback (e.g. 100.mp4, 1000.mp4)
     if (RegExp(r'^\d{1,4}(?:\.\d{1,2})?$').hasMatch(fileName)) {
-       return MediaType.tvShow;
+      return MediaType.tvShow;
     }
 
     return MediaType.unknown;
@@ -636,42 +687,53 @@ class MediaScanner {
     // 1b. Containment without spaces (handles Zom100 vs Zom 100)
     final n1NoSpace = n1.replaceAll(' ', '');
     final n2NoSpace = n2.replaceAll(' ', '');
-    if (n1NoSpace.contains(n2NoSpace) || n2NoSpace.contains(n1NoSpace)) return true;
+    if (n1NoSpace.contains(n2NoSpace) || n2NoSpace.contains(n1NoSpace)) {
+      return true;
+    }
 
     // 2. Acronym matching (e.g. V-FE'sS -> Vivy Fluorite Eye's Song)
-    // Create acronyms from the *original* strings (but cleaned of special chars)
+    // Create acronyms from the *original* strings(but cleaned of special chars)
     final a1 = _createAcronym(title1);
     final a2 = _createAcronym(title2);
-    
+
     // If one is an acronym of the other
-    if (a1.length > 2 && n2.replaceAll(RegExp(r'[^a-z]'), '').contains(a1)) return true;
-    if (a2.length > 2 && n1.replaceAll(RegExp(r'[^a-z]'), '').contains(a2)) return true;
+    if (a1.length > 2 && n2.replaceAll(RegExp(r'[^a-z]'), '').contains(a1)) {
+      return true;
+    }
+    if (a2.length > 2 && n1.replaceAll(RegExp(r'[^a-z]'), '').contains(a2)) {
+      return true;
+    }
 
     // 3. Token overlap
     // If they share significant tokens
     final tokens1 = _tokenize(n1);
     final tokens2 = _tokenize(n2);
     final intersection = tokens1.intersection(tokens2);
-    
+
     // If they share at least 50% of tokens of the shorter string
-    final minTokens = tokens1.length < tokens2.length ? tokens1.length : tokens2.length;
+    final minTokens = tokens1.length < tokens2.length
+        ? tokens1.length
+        : tokens2.length;
     if (minTokens > 0 && intersection.length >= (minTokens / 2).ceil()) {
       return true;
     }
 
-    // 4. Consonant Match (handles romanization differences like Shippuuden vs Shippuden)
+    // 4. Consonant Match (handles romanization differences like Shippuuden vs
+    // Shippuden)
     // Remove vowels and duplicate consonants
     final c1 = _toConsonants(n1);
     final c2 = _toConsonants(n2);
-    if (c1.length > 3 && c2.length > 3) { // Only for reasonably long strings
-       if (c1.contains(c2) || c2.contains(c1)) return true;
+    if (c1.length > 3 && c2.length > 3) {
+      // Only for reasonably long strings
+      if (c1.contains(c2) || c2.contains(c1)) return true;
     }
 
     return false;
   }
 
   String _normalizeForFuzzyMatching(String text) {
-    return text.toLowerCase()
+    return text
+        .toLowerCase()
         .replaceAll(RegExp(r'[._\-]'), ' ') // Replace separators with space
         .replaceAll(RegExp(r'[^a-z0-9\s]'), '') // Remove special chars
         .replaceAll(RegExp(r'\s+'), ' ') // Normalize spaces
@@ -679,10 +741,11 @@ class MediaScanner {
   }
 
   String _createAcronym(String text) {
-    final words = text.toLowerCase()
+    final words = text
+        .toLowerCase()
         .replaceAll(RegExp(r"[^a-z0-9\s]"), "")
         .split(RegExp(r'\s+'));
-    return words.where((w) => w.isNotEmpty).map((w) => w[0]).join('');
+    return words.where((w) => w.isNotEmpty).map((w) => w[0]).join();
   }
 
   Set<String> _tokenize(String normalizedText) {
@@ -691,7 +754,8 @@ class MediaScanner {
 
   String _toConsonants(String text) {
     // Remove vowels and non-alphanumeric
-    return text.toLowerCase()
+    return text
+        .toLowerCase()
         .replaceAll(RegExp(r'[^a-z0-9]'), '')
         .replaceAll(RegExp(r'[aeiou]'), '');
   }

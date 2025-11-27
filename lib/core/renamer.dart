@@ -48,7 +48,9 @@ class MediaRenamer {
     bool dryRun = false,
     bool interactive = true,
   }) async {
-    print('processItems called with ${items.length} items. dryRun=$dryRun, interactive=$interactive');
+    print(
+      'processItems called with ${items.length} items. dryRun=$dryRun, interactive=$interactive',
+    );
     _scanRoot = scanRoot;
     _plannedOperations.clear();
 
@@ -399,20 +401,38 @@ class MediaRenamer {
   Future<void> _executeOperations() async {
     // Group operations by directories to create them first
     final directories = <String>{};
-    print('Planned operations: ${_plannedOperations.length}');
 
     for (final op in _plannedOperations) {
       final dir = path.dirname(op.targetPath);
-             _logger.warning('Target file already exists: $targetPath. Appending suffix.');
-             // Find unique name
-             var counter = 1;
-             final ext = path.extension(targetPath);
-             final base = path.withoutExtension(targetPath);
-             while (File(targetPath).existsSync()) {
-                 targetPath = '$base ($counter)$ext';
-                 counter++;
-             }
-         }
+      directories.add(dir);
+    }
+
+    // Create all directories
+    for (final dir in directories) {
+      await Directory(dir).create(recursive: true);
+    }
+
+    // Execute renames
+    for (final op in _plannedOperations) {
+      var targetPath = op.targetPath;
+      final sourceFile = File(op.sourcePath);
+
+      // Check for collision
+      if (File(targetPath).existsSync()) {
+        // If source and target are the same file (just case change or same path), allow it.
+        if (path.canonicalize(op.sourcePath) != path.canonicalize(targetPath)) {
+          _logger.warning(
+            'Target file already exists: $targetPath. Appending suffix.',
+          );
+          // Find unique name
+          var counter = 1;
+          final ext = path.extension(targetPath);
+          final base = path.withoutExtension(targetPath);
+          while (File(targetPath).existsSync()) {
+            targetPath = '$base ($counter)$ext';
+            counter++;
+          }
+        }
       }
 
       final logger = _getLoggerForOperation(op);
@@ -433,19 +453,25 @@ class MediaRenamer {
         // Check if this is the current working directory
         final normalizedDir = path.canonicalize(dir);
         final normalizedCwd = path.canonicalize(Directory.current.path);
-        
+
         if (normalizedDir == normalizedCwd) {
-          _logger.info('\n⚠️  Skipping deletion of empty directory because it is the current working directory: $dir\n');
+          _logger.info(
+            '\n⚠️  Skipping deletion of empty directory because it is the current working directory: $dir\n',
+          );
           continue;
         } else {
-           _logger.debug('Directory $dir ($normalizedDir) is not CWD ($normalizedCwd)');
+          _logger.debug(
+            'Directory $dir ($normalizedDir) is not CWD ($normalizedCwd)',
+          );
         }
 
         try {
           await Directory(dir).delete(recursive: true);
           _logger.info('Deleted empty directory: $dir');
         } on FileSystemException catch (e) {
-          _logger.warning('Failed to delete empty directory $dir: ${e.message}');
+          _logger.warning(
+            'Failed to delete empty directory $dir: ${e.message}',
+          );
         }
       }
     }
