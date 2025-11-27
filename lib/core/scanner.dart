@@ -322,11 +322,17 @@ class MediaScanner {
       final startEp = int.parse(threeDigitMultiMatch.group(2)!);
       final endEp = int.parse(threeDigitMultiMatch.group(3)!);
       if (seasonNum > 0 && startEp > 0 && endEp > 0) {
-        return Episode(
-          seasonNumber: seasonNum,
-          episodeNumberStart: startEp,
-          episodeNumberEnd: endEp,
-        );
+        // Validate against season folder if present
+        final folderSeason = extractSeasonFromDirName(parentDirName);
+        if (folderSeason != null && folderSeason != seasonNum) {
+          _logger.debug('Skipping 3-digit pattern because folder season ($folderSeason) mismatches parsed season ($seasonNum).');
+        } else {
+          return Episode(
+            seasonNumber: seasonNum,
+            episodeNumberStart: startEp,
+            episodeNumberEnd: endEp,
+          );
+        }
       }
     }
 
@@ -350,7 +356,28 @@ class MediaScanner {
       final effectiveSeason = seasonNum == 0 ? 1 : seasonNum;
 
       if (seasonNum >= 0 && seasonNum < 50 && episodeNum > 0) {
-        return Episode(seasonNumber: effectiveSeason, episodeNumberStart: episodeNum);
+        // Validate against season folder if present
+        final folderSeason = extractSeasonFromDirName(parentDirName);
+        // Note: if seasonNum is 0 (from 001), effectiveSeason is 1.
+        // If folder is Season 1, folderSeason is 1.
+        // If 001 in Season 1: seasonNum=0, folderSeason=1. Mismatch?
+        // Yes, 0 != 1. So we skip.
+        // Then it falls through to Season Context.
+        // Season Context sees "Season 1", matches "001" as 1. Result: S1 E1.
+        // Same result.
+        
+        // If 101 in Season 1: seasonNum=1, folderSeason=1. Match.
+        // Result: S1 E1.
+        
+        // If 101 in Season 2: seasonNum=1, folderSeason=2. Mismatch. Skip.
+        // Fall through to Season Context.
+        // Season Context sees "Season 2", matches "101" as 101. Result: S2 E101.
+        
+        if (folderSeason != null && folderSeason != seasonNum) {
+           _logger.debug('Skipping 3-digit pattern because folder season ($folderSeason) mismatches parsed season ($seasonNum).');
+        } else {
+           return Episode(seasonNumber: effectiveSeason, episodeNumberStart: episodeNum);
+        }
       }
     }
 
