@@ -79,9 +79,11 @@ class TitleProcessor {
   static String cleanTitleDots(String title) {
     var result = title;
 
-    // Replace all dots between word characters with spaces
+    // Replace all dots between word characters (including umlauts) with spaces
     result = result.replaceAllMapped(
-      RegExp(r'(\w)\.(\w)'),
+      RegExp(
+        r'([\w\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF])\.([\w\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF])',
+      ),
       (match) => '${match.group(1)} ${match.group(2)}',
     );
 

@@ -1,5 +1,6 @@
 import 'package:renamer/core/detector.dart';
 import 'package:renamer/metadata/models.dart';
+import 'package:renamer/utils/title_processor.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -26,6 +27,31 @@ void main() {
     test('extracts title and year from filename', () {
       // Test the private method indirectly through public interface
       // This would need more comprehensive testing in a real scenario
+    });
+  });
+
+  group('TitleProcessor', () {
+    test('cleans dots between umlauts', () {
+      expect(TitleProcessor.cleanTitleDots('Mä.dchen'), 'Mä dchen');
+      expect(
+        TitleProcessor.cleanTitleDots('Mädchen.im.Wald'),
+        'Mädchen im Wald',
+      );
+      expect(TitleProcessor.cleanTitleDots('Groß.Artig'), 'Groß Artig');
+    });
+
+    test('cleanFilename handles umlauts', () {
+      expect(
+        TitleProcessor.extractTitleUntilKeywords('Mädchen.2020.mkv').title,
+        'Mädchen',
+      );
+    });
+
+    test('extracts title with umlauts', () {
+      expect(
+        TitleProcessor.extractTitleUntilKeywords('Tätort.S01E01.mkv').title,
+        'Tätort',
+      );
     });
   });
 
