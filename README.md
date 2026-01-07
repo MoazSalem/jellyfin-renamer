@@ -31,24 +31,61 @@ A command-line tool for renaming media libraries to comply with [Jellyfin's offi
 
 ## Installation
 
+### From Releases (Recommended)
+Download the latest executable for your platform (Windows, Linux, macOS) from the [Releases](https://github.com/MoazSalem/jellyfin-renamer/releases) page.
+
+### From Source
 1. Ensure you have Dart SDK installed
 2. Clone or download this repository
 3. Run `dart pub get` to install dependencies
 4. Build the executable: `dart compile exe bin/main.dart`
 
+### Running Globally (Optional)
+
+To run `renamer` from any terminal window without specifying the full path:
+
+#### Windows
+1.  Move the downloaded/built `renamer.exe` to a permanent location (e.g., `C:\Users\UserName\bin`).
+2.  Open **Start** and search for "Environment Variables".
+3.  Click **Edit the system environment variables**.
+4.  Click **Environment Variables**.
+5.  Under **System variables** (or User variables), find `Path` and click **Edit**.
+6.  Click **New** and paste the folder path from step 1.
+7.  Click **OK** on all windows.
+8.  Restart your terminal. You can now use `renamer` anywhere.
+
+#### Linux / macOS
+Move the binary to a directory already in your PATH, such as `/usr/local/bin`:
+
+```bash
+# Assuming you are in the directory with the binary
+sudo mv renamer /usr/local/bin/
+```
+
+Alternatively, add its custom location to your shell config (`.bashrc`, `.zshrc`, etc.):
+
+```bash
+export PATH="$PATH:/path/to/directory/containing/renamer"
+```
+
 ## Testing
 
-The `testing_playground/` directory contains sample media files and directory structures for testing the tool. Use these for development and testing:
+To test the tool, you can create a folder with sample media files (videos, subtitles) and run the commands against it.
 
 ```bash
 # Basic functionality test
-renamer scan --path testing_playground/test_media
+renamer scan --path /path/to/test_media
 
-# Episode grouping test
-renamer rename --path testing_playground/test_7_episodes --dry-run
+# or using short command
 
-# Directory-aware detection test
-renamer rename --path "testing_playground/Anne With An E/Anne.With.An.E.Season.1.S01.720p.WEBRip.x265" --dry-run
+renamer s -p /path/to/test_media
+
+# Dry run to see what happens without renaming
+renamer rename --path /path/to/test_media --dry-run
+
+#or using short command
+
+renamer r -p /path/to/test_media --dry-run
 ```
 
 ## Usage
@@ -60,6 +97,8 @@ Scan a directory to see what media files the tool detects.
 ```bash
 renamer scan --path /path/to/your/media
 ```
+
+- Note that if you don't provide a path, the tool will scan the current directory.
 
 ### 2. Rename Files (Dry Run)
 
@@ -107,7 +146,20 @@ renamer rename --path /path/to/your/media
 renamer rename --path /path/to/your/media --no-interactive
 ```
 
-### 4. Undo Changes
+### 4. Rename Single Show/Movie
+
+For processing a specific show or movie folder without scanning the entire library structure (useful for downloads folders or specific cleanup).
+
+```bash
+renamer rename-single --path "/path/to/downloads/My Show Season 1"
+```
+
+This acts exactly like strict mode:
+- Errors if multiple movies or mixed content is found.
+- Creates the log file inside the target folder (or its parent), keeping logs localized.
+
+
+### 5. Undo Changes
 
 If you need to revert the last operation, use the `undo` command.
 
@@ -169,16 +221,22 @@ Example:
 - `-v, --verbose`: Enable detailed debug logging for troubleshooting.
 - `-h, --help`: Show help information
 
-### Scan Command
+### Scan Command (alias: `s`)
 - `-p, --path`: Root directory to scan (required)
 
-### Rename Command
+### Rename Command (alias: `r`)
 - `-p, --path`: Root directory to process (required)
 - `-d, --dry-run`: Preview changes without applying them
 - `-i, --interactive`: Prompt for confirmation (default: true)
 - `-l, --log`: Path to undo log file (default: rename_log.json)
 
-### Undo Command
+### Rename Single Command (alias: `rs`)
+- `-p, --path`: Path to the show or movie folder (required)
+- `-d, --dry-run`: Preview changes without applying them
+- `-i, --interactive`: Prompt for confirmation (default: true)
+- `-l, --log`: Path to undo log file (default: rename_log.json)
+
+### Undo Command (alias: `u`)
 - `-l, --log`: Path to undo log file (default: rename_log.json)
 - `-p, --preview`: Show what will be undone without applying
 
@@ -274,10 +332,10 @@ renamer rename --path ./test --dry-run --verbose
 # Unit tests
 dart test
 
-# Integration testing with sample media
-# Use the testing_playground directory for test scenarios
-renamer scan --path testing_playground/test_media
-renamer rename --path testing_playground/test_7_episodes --dry-run
+# Integration testing
+# Create a folder with sample content to test manually
+renamer scan --path /path/to/sample_content
+renamer rename --path /path/to/sample_content --dry-run
 ```
 
 ### Building
