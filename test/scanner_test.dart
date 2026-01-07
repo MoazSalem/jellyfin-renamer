@@ -175,15 +175,18 @@ void main() {
       expect(result.episodeNumberEnd, isNull);
     });
 
-    test('should parse "Title-Episode" pattern when matching parent directory', () {
-      final result = scanner.extractEpisodeInfo(
-        'My Show/My Show-01.mp4',
-      );
-      expect(result, isNotNull);
-      expect(result!.seasonNumber, 1);
-      expect(result.episodeNumberStart, 1);
-      expect(result.episodeNumberEnd, isNull);
-    });
+    test(
+      'should parse "Title-Episode" pattern when matching parent directory',
+      () {
+        final result = scanner.extractEpisodeInfo(
+          'My Show/My Show-01.mp4',
+        );
+        expect(result, isNotNull);
+        expect(result!.seasonNumber, 1);
+        expect(result.episodeNumberStart, 1);
+        expect(result.episodeNumberEnd, isNull);
+      },
+    );
 
     test('should parse "bracketed episode numbers" format', () {
       final result = scanner.extractEpisodeInfo(
@@ -228,7 +231,7 @@ void main() {
     test('should fuzzy match "My Very Long Show" with acronym', () {
       // M-VL'sS vs My Very Long Show
       final result = scanner.extractEpisodeInfo(
-        'My Very Long Show/[ReleaseGroup] M-VL\'sS  - 01 [Web-DL - 1080p - X265].mkv',
+        "My Very Long Show/[ReleaseGroup] M-VL'sS  - 01 [Web-DL - 1080p - X265].mkv",
       );
       expect(result, isNotNull);
       expect(result!.seasonNumber, 1);
@@ -317,12 +320,16 @@ void main() {
       expect(result.episodeNumberStart, 1);
     });
 
-    test('should detect episode number in parentheses with fractional (Show Name (1.5))', () {
-      final result = scanner.extractEpisodeInfo(
-        'Show Name/Show Name (1.5).mkv',
-      );
-      expect(result!.episodeNumberStart, 1.5);
-    });
+    test(
+      'should detect episode number in parentheses with '
+      'fractional (Show Name (1.5))',
+      () {
+        final result = scanner.extractEpisodeInfo(
+          'Show Name/Show Name (1.5).mkv',
+        );
+        expect(result!.episodeNumberStart, 1.5);
+      },
+    );
 
     test('should detect episode with END suffix', () {
       final result = scanner.extractEpisodeInfo(
@@ -341,25 +348,28 @@ void main() {
       expect(result!.seasonNumber, 1);
       expect(result.episodeNumberStart, 26); // Should be 26, not 1080
     });
-    test('should detect absolute numbering for long running shows (One Piece)', () {
-      // One Piece/100.mp4 -> Season 1, Episode 100
-      var result = scanner.extractEpisodeInfo('One Piece/100.mp4');
-      expect(result, isNotNull, reason: '100.mp4 should be detected');
-      expect(result!.seasonNumber, 1);
-      expect(result.episodeNumberStart, 100);
+    test(
+      'should detect absolute numbering for long running shows (One Piece)',
+      () {
+        // One Piece/100.mp4 -> Season 1, Episode 100
+        var result = scanner.extractEpisodeInfo('One Piece/100.mp4');
+        expect(result, isNotNull, reason: '100.mp4 should be detected');
+        expect(result!.seasonNumber, 1);
+        expect(result.episodeNumberStart, 100);
 
-      // One Piece/1000.mp4 -> Season 1, Episode 1000
-      result = scanner.extractEpisodeInfo('One Piece/1000.mp4');
-      expect(result, isNotNull, reason: '1000.mp4 should be detected');
-      expect(result!.seasonNumber, 1);
-      expect(result.episodeNumberStart, 1000);
+        // One Piece/1000.mp4 -> Season 1, Episode 1000
+        result = scanner.extractEpisodeInfo('One Piece/1000.mp4');
+        expect(result, isNotNull, reason: '1000.mp4 should be detected');
+        expect(result!.seasonNumber, 1);
+        expect(result.episodeNumberStart, 1000);
 
-      // One Piece/200.mp4
-      result = scanner.extractEpisodeInfo('One Piece/200.mp4');
-      expect(result, isNotNull);
-      expect(result!.seasonNumber, 1);
-      expect(result.episodeNumberStart, 200);
-    });
+        // One Piece/200.mp4
+        result = scanner.extractEpisodeInfo('One Piece/200.mp4');
+        expect(result, isNotNull);
+        expect(result!.seasonNumber, 1);
+        expect(result.episodeNumberStart, 200);
+      },
+    );
 
     test('should detect fuzzy attached numbers (Naruto Shippuden)', () {
       // Naruto shippuden/NarutoShippuuden307.mp4
@@ -367,7 +377,11 @@ void main() {
       final result = scanner.extractEpisodeInfo(
         'Naruto shippuden/NarutoShippuuden307.mp4',
       );
-      expect(result, isNotNull, reason: 'NarutoShippuuden307 should be detected');
+      expect(
+        result,
+        isNotNull,
+        reason: 'NarutoShippuuden307 should be detected',
+      );
       expect(result!.seasonNumber, 1);
       expect(result.episodeNumberStart, 307);
     });
@@ -376,7 +390,11 @@ void main() {
       final result = scanner.extractEpisodeInfo(
         'Yakusoku no Neverland/YakusokunoNeverland10.mp4',
       );
-      expect(result, isNotNull, reason: 'YakusokunoNeverland10 should be detected');
+      expect(
+        result,
+        isNotNull,
+        reason: 'YakusokunoNeverland10 should be detected',
+      );
       expect(result!.seasonNumber, 1);
       expect(result.episodeNumberStart, 10);
     });
@@ -386,7 +404,11 @@ void main() {
       final result = scanner.extractEpisodeInfo(
         'Yakusoku no Neverland/YakusokunoNeverlandEND12.mp4',
       );
-      expect(result, isNotNull, reason: 'YakusokunoNeverlandEND12 should be detected');
+      expect(
+        result,
+        isNotNull,
+        reason: 'YakusokunoNeverlandEND12 should be detected',
+      );
       expect(result!.seasonNumber, 1);
       expect(result.episodeNumberStart, 12);
     });

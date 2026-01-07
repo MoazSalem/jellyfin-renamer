@@ -1,3 +1,4 @@
+/// Utility class for sorting and comparing strings.
 class SortUtils {
   /// Compares two strings using natural sort order.
   ///

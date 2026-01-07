@@ -32,7 +32,8 @@ class TitleProcessor {
   ) {
     // Clean the filename first
     // First, extract the year from the raw filename.
-    // We do this before cleaning because cleaning might remove parentheses containing the year.
+    // We do this before cleaning because cleaning might
+    // remove parentheses containing the year.
     final yearMatch = RegExp(r'\b(19|20)\d{2}\b').firstMatch(fileName);
     final year = yearMatch != null ? int.tryParse(yearMatch.group(0)!) : null;
 
@@ -46,8 +47,12 @@ class TitleProcessor {
       r'\bS\d{1,2}\b',
       r'\b(19|20)\d{2}\b', // Keep year here to find title boundary
       ...filenameFilterWords.map((word) => r'\b' + RegExp.escape(word) + r'\b'),
-      ...FileExtensions.video.map((ext) => r'\b' + RegExp.escape(ext.replaceAll('.', '')) + r'\b'),
-      ...FileExtensions.subtitle.map((ext) => r'\b' + RegExp.escape(ext.replaceAll('.', '')) + r'\b'),
+      ...FileExtensions.video.map(
+        (ext) => r'\b' + RegExp.escape(ext.replaceAll('.', '')) + r'\b',
+      ),
+      ...FileExtensions.subtitle.map(
+        (ext) => r'\b' + RegExp.escape(ext.replaceAll('.', '')) + r'\b',
+      ),
     ];
 
     var earliestEndIndex = cleanName.length;

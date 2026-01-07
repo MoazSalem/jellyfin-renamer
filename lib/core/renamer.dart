@@ -48,8 +48,9 @@ class MediaRenamer {
     bool dryRun = false,
     bool interactive = true,
   }) async {
-    print(
-      'processItems called with ${items.length} items. dryRun=$dryRun, interactive=$interactive',
+    _logger.debug(
+      'processItems called with ${items.length} items. dryRun=$dryRun, '
+      'interactive=$interactive',
     );
     _scanRoot = scanRoot;
     _plannedOperations.clear();
@@ -336,13 +337,12 @@ class MediaRenamer {
     _plannedOperations.add(RenameOperation(currentPath, newPath));
 
     // Plan subtitle file renames
-    for (final subtitlePath in subtitlePaths) {
-      final subtitleExtension = path.extension(subtitlePath);
-      final subtitleFileName =
-          '${movie.jellyfinName}.default$subtitleExtension';
-      final newSubtitlePath = path.join(movieDir, subtitleFileName);
-      _plannedOperations.add(RenameOperation(subtitlePath, newSubtitlePath));
-    }
+    _planRenameSubtitles(
+      subtitlePaths,
+      movie.jellyfinName,
+      null,
+      movieDir,
+    );
   }
 
   void _planRenameTvShowGroup(
@@ -385,16 +385,32 @@ class MediaRenamer {
 
       _plannedOperations.add(RenameOperation(currentPath, newPath));
 
-      // Plan subtitle renames for this episode
       final subtitles = episodeSubtitleMap[currentPath] ?? [];
-      for (final subtitlePath in subtitles) {
-        final subtitleExtension = path.extension(subtitlePath);
-        final subtitleFileName =
-            '${show.jellyfinName} '
-            '${episode.episodeCode}.default$subtitleExtension';
-        final newSubtitlePath = path.join(seasonDir, subtitleFileName);
-        _plannedOperations.add(RenameOperation(subtitlePath, newSubtitlePath));
+      _planRenameSubtitles(
+        subtitles,
+        show.jellyfinName,
+        episode.episodeCode,
+        seasonDir,
+      );
+    }
+  }
+
+  void _planRenameSubtitles(
+    List<String> subtitlePaths,
+    String baseName,
+    String? episodeCode,
+    String targetDir,
+  ) {
+    for (final subtitlePath in subtitlePaths) {
+      final subtitleExtension = path.extension(subtitlePath);
+      final String subtitleFileName;
+      if (episodeCode != null) {
+        subtitleFileName = '$baseName $episodeCode.default$subtitleExtension';
+      } else {
+        subtitleFileName = '$baseName.default$subtitleExtension';
       }
+      final newSubtitlePath = path.join(targetDir, subtitleFileName);
+      _plannedOperations.add(RenameOperation(subtitlePath, newSubtitlePath));
     }
   }
 
@@ -419,7 +435,7 @@ class MediaRenamer {
 
       // Check for collision
       if (File(targetPath).existsSync()) {
-        // If source and target are the same file (just case change or same path), allow it.
+        // If source and target are the same file, allow it.
         if (path.canonicalize(op.sourcePath) != path.canonicalize(targetPath)) {
           _logger.warning(
             'Target file already exists: $targetPath. Appending suffix.',
@@ -456,7 +472,8 @@ class MediaRenamer {
 
         if (normalizedDir == normalizedCwd) {
           _logger.info(
-            '\n⚠️  Skipping deletion of empty directory because it is the current working directory: $dir\n',
+            '\n⚠️  Skipping deletion of empty directory because it is '
+            'the current working directory: $dir\n',
           );
           continue;
         } else {

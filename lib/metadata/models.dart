@@ -241,7 +241,7 @@ class Episode {
   /// (e.g., "S01E05" or "S01E05-E06").
   String get episodeCode {
     final seasonStr = 'S${seasonNumber.toString().padLeft(2, '0')}';
-    
+
     String formatNum(num n) {
       // If integer, pad with 0. If double, keep as is (e.g. 6.5)
       // Ideally we want 06.5 for sorting?
@@ -253,7 +253,7 @@ class Episode {
       final intPart = n.floor();
       final fracPart = n - intPart;
       // Remove "0." from fraction string "0.5" -> ".5"
-      final fracStr = fracPart.toString().substring(1); 
+      final fracStr = fracPart.toString().substring(1);
       return '${intPart.toString().padLeft(2, '0')}$fracStr';
     }
 

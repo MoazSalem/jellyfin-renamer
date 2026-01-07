@@ -697,10 +697,10 @@ class MediaScanner {
     final a2 = _createAcronym(title2);
 
     // If one is an acronym of the other
-    if (a1.length > 2 && n2.replaceAll(RegExp(r'[^a-z]'), '').contains(a1)) {
+    if (a1.length > 2 && n2.replaceAll(RegExp('[^a-z]'), '').contains(a1)) {
       return true;
     }
-    if (a2.length > 2 && n1.replaceAll(RegExp(r'[^a-z]'), '').contains(a2)) {
+    if (a2.length > 2 && n1.replaceAll(RegExp('[^a-z]'), '').contains(a2)) {
       return true;
     }
 
@@ -743,7 +743,7 @@ class MediaScanner {
   String _createAcronym(String text) {
     final words = text
         .toLowerCase()
-        .replaceAll(RegExp(r"[^a-z0-9\s]"), "")
+        .replaceAll(RegExp(r'[^a-z0-9\s]'), '')
         .split(RegExp(r'\s+'));
     return words.where((w) => w.isNotEmpty).map((w) => w[0]).join();
   }
@@ -756,7 +756,7 @@ class MediaScanner {
     // Remove vowels and non-alphanumeric
     return text
         .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9]'), '')
-        .replaceAll(RegExp(r'[aeiou]'), '');
+        .replaceAll(RegExp('[^a-z0-9]'), '')
+        .replaceAll(RegExp('[aeiou]'), '');
   }
 }

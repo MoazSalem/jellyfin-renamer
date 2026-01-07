@@ -25,7 +25,7 @@ void main(List<String> args) async {
     // Configure logger
     Logger.root.level = argResults['verbose'] as bool ? Level.ALL : Level.INFO;
     Logger.root.onRecord.listen((record) {
-      print('${record.level.name}: ${record.message}');
+      stdout.writeln('${record.level.name}: ${record.message}');
     });
 
     final logger = app_logger.AppLogger();
