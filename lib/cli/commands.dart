@@ -93,6 +93,13 @@ abstract class BaseRenameCommand extends Command<void> {
         abbr: 'l',
         help: 'Path to undo log file',
         defaultsTo: 'rename_log.json',
+      )
+      ..addOption(
+        'mode',
+        abbr: 'm',
+        help: 'Rename mode (move, copy, hardlink, symlink)',
+        defaultsTo: 'move',
+        allowed: ['move', 'copy', 'hardlink', 'symlink'],
       );
   }
 
@@ -127,6 +134,15 @@ abstract class BaseRenameCommand extends Command<void> {
         logPath = p.join(p.dirname(p.dirname(path)), 'rename_log.json');
       }
     }
+
+    final modeString = argResults?['mode'] as String? ?? 'move';
+    final mode = switch (modeString) {
+      'move' => RenameMode.move,
+      'copy' => RenameMode.copy,
+      'hardlink' => RenameMode.hardLink,
+      'symlink' => RenameMode.symLink,
+      _ => RenameMode.move,
+    };
 
     final scanner = MediaScanner(logger: logger);
     final renamer = MediaRenamer(logger: logger);
@@ -164,6 +180,7 @@ abstract class BaseRenameCommand extends Command<void> {
             scanRoot: path,
             dryRun: dryRun,
             interactive: interactive,
+            mode: mode,
           );
           logger.info('All items processed successfully');
         } on Object catch (e) {

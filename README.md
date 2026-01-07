@@ -146,7 +146,28 @@ renamer rename --path /path/to/your/media
 renamer rename --path /path/to/your/media --no-interactive
 ```
 
-### 4. Rename Single Show/Movie
+### 4. specific Modes (Copy, Hard Link, Soft Link)
+
+By default, the tool moves (renames) files. You can change this behavior using the `--mode` (`-m`) option. This is particularly useful if you want to seed your media from the original location while having a clean structure for Jellyfin.
+
+**Available Modes:**
+- `move` (Default): Renames the files.
+- `hardlink`: Creates a hard link. Best for seeding; takes up no extra space. (Target and source must be on the same drive).
+- `symlink`: Creates a symbolic link (shortcut) - this requires admin permissions on Windows.
+- `copy`: Copies the files. (Uses double the storage space).
+
+```bash
+# Create hard links
+renamer rename --path /path/to/downloads --mode hardlink
+
+# Create symbolic links
+renamer rename -p /path/to/downloads -m symlink
+```
+
+> [!NOTE]
+> The undo log (`rename_log.json`) is **only** generated when using the default `move` mode. Copy, hardlink, and symlink operations do not generate an undo log. Also, empty source directories are **not** deleted in these modes.
+
+### 5. Rename Single Show/Movie
 
 For processing a specific show or movie folder without scanning the entire library structure (useful for downloads folders or specific cleanup).
 

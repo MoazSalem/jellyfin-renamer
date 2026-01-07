@@ -9,6 +9,21 @@ import 'package:renamer/utils/logger.dart' as app_logger;
 import 'package:renamer/utils/sort_utils.dart';
 import 'package:renamer/utils/title_processor.dart';
 
+/// The mode of operation for the renamer.
+enum RenameMode {
+  /// Rename (move) files.
+  move,
+
+  /// Copy files.
+  copy,
+
+  /// Create hard links.
+  hardLink,
+
+  /// Create symbolic links.
+  symLink,
+}
+
 /// Represents a single rename operation with source and target paths.
 class RenameOperation {
   /// Creates a new rename operation.
@@ -47,10 +62,11 @@ class MediaRenamer {
     required String scanRoot,
     bool dryRun = false,
     bool interactive = true,
+    RenameMode mode = RenameMode.move,
   }) async {
     _logger.debug(
       'processItems called with ${items.length} items. dryRun=$dryRun, '
-      'interactive=$interactive',
+      'interactive=$interactive, mode=$mode',
     );
     _scanRoot = scanRoot;
     _plannedOperations.clear();
@@ -150,7 +166,7 @@ class MediaRenamer {
     // Execute operations if not dry run and confirmed
     if (!dryRun) {
       if (!interactive || await _interactive.confirmExecution()) {
-        await _executeOperations();
+        await _executeOperations(mode);
       }
     }
   }
@@ -166,12 +182,14 @@ class MediaRenamer {
     required String scanRoot,
     bool dryRun = false,
     bool interactive = true,
+    RenameMode mode = RenameMode.move,
   }) async {
     await processItems(
       [item],
       scanRoot: scanRoot,
       dryRun: dryRun,
       interactive: interactive,
+      mode: mode,
     );
   }
 
@@ -414,7 +432,7 @@ class MediaRenamer {
     }
   }
 
-  Future<void> _executeOperations() async {
+  Future<void> _executeOperations(RenameMode mode) async {
     // Group operations by directories to create them first
     final directories = <String>{};
 
@@ -428,14 +446,15 @@ class MediaRenamer {
       await Directory(dir).create(recursive: true);
     }
 
-    // Execute renames
+    // Execute operations
     for (final op in _plannedOperations) {
       var targetPath = op.targetPath;
       final sourceFile = File(op.sourcePath);
 
       // Check for collision
       if (File(targetPath).existsSync()) {
-        // If source and target are the same file, allow it.
+        // If source and target are the same file, allow it for move/copy/hardlink logic if paths differ.
+        // But for hardlink, they technically point to same data.
         if (path.canonicalize(op.sourcePath) != path.canonicalize(targetPath)) {
           _logger.warning(
             'Target file already exists: $targetPath. Appending suffix.',
@@ -452,44 +471,84 @@ class MediaRenamer {
       }
 
       final logger = _getLoggerForOperation(op);
-      if (logger != null) {
+      if (logger != null && mode == RenameMode.move) {
         await logger.logRename(op.sourcePath, targetPath);
       }
-      await sourceFile.rename(targetPath);
+
+      try {
+        switch (mode) {
+          case RenameMode.move:
+            await sourceFile.rename(targetPath);
+          case RenameMode.copy:
+            await sourceFile.copy(targetPath);
+          case RenameMode.symLink:
+            await Link(targetPath).create(op.sourcePath);
+          case RenameMode.hardLink:
+            await _createHardLink(op.sourcePath, targetPath);
+        }
+      } catch (e) {
+        _logger.error(
+          'Failed to ${mode.name} ${op.sourcePath} to $targetPath: $e',
+        );
+        // Continue with other files? Or rethrow?
+        // For now, log error and continue
+      }
     }
 
-    // Clean up empty source directories
-    final sourceDirs = <String>{};
-    for (final op in _plannedOperations) {
-      sourceDirs.add(path.dirname(op.sourcePath));
+    // Clean up empty source directories ONLY if moving
+    if (mode == RenameMode.move) {
+      final sourceDirs = <String>{};
+      for (final op in _plannedOperations) {
+        sourceDirs.add(path.dirname(op.sourcePath));
+      }
+
+      for (final dir in sourceDirs) {
+        if (await _isDirectoryEmpty(dir)) {
+          // Check if this is the current working directory
+          final normalizedDir = path.canonicalize(dir);
+          final normalizedCwd = path.canonicalize(Directory.current.path);
+
+          if (normalizedDir == normalizedCwd) {
+            _logger.info(
+              '\n⚠️  Skipping deletion of empty directory because it is '
+              'the current working directory: $dir\n',
+            );
+            continue;
+          } else {
+            _logger.debug(
+              'Directory $dir ($normalizedDir) is not CWD ($normalizedCwd)',
+            );
+          }
+
+          try {
+            await Directory(dir).delete(recursive: true);
+            _logger.info('Deleted empty directory: $dir');
+          } on FileSystemException catch (e) {
+            _logger.warning(
+              'Failed to delete empty directory $dir: ${e.message}',
+            );
+          }
+        }
+      }
     }
+  }
 
-    for (final dir in sourceDirs) {
-      if (await _isDirectoryEmpty(dir)) {
-        // Check if this is the current working directory
-        final normalizedDir = path.canonicalize(dir);
-        final normalizedCwd = path.canonicalize(Directory.current.path);
-
-        if (normalizedDir == normalizedCwd) {
-          _logger.info(
-            '\n⚠️  Skipping deletion of empty directory because it is '
-            'the current working directory: $dir\n',
-          );
-          continue;
-        } else {
-          _logger.debug(
-            'Directory $dir ($normalizedDir) is not CWD ($normalizedCwd)',
-          );
-        }
-
-        try {
-          await Directory(dir).delete(recursive: true);
-          _logger.info('Deleted empty directory: $dir');
-        } on FileSystemException catch (e) {
-          _logger.warning(
-            'Failed to delete empty directory $dir: ${e.message}',
-          );
-        }
+  Future<void> _createHardLink(String source, String target) async {
+    if (Platform.isWindows) {
+      final result = await Process.run('cmd', [
+        '/c',
+        'mklink',
+        '/H',
+        target,
+        source,
+      ]);
+      if (result.exitCode != 0) {
+        throw Exception('mklink failed: ${result.stderr}');
+      }
+    } else {
+      final result = await Process.run('ln', [source, target]);
+      if (result.exitCode != 0) {
+        throw Exception('ln failed: ${result.stderr}');
       }
     }
   }
