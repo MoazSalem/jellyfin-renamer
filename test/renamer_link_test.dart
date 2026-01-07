@@ -205,4 +205,40 @@ void main() {
       }
     },
   );
+
+  test('Custom output directory creates files in correct location', () async {
+    final movieDir = await Directory(
+      p.join(tempDir.path, 'Custom Movie (2024)'),
+    ).create();
+    final file = await File(
+      p.join(movieDir.path, 'Custom.Movie.2024.mkv'),
+    ).create();
+    final item = MediaItem(
+      path: file.path,
+      type: MediaType.movie,
+      detectedTitle: 'Custom Movie',
+      detectedYear: 2024,
+    );
+
+    final outputDir = await Directory(p.join(tempDir.path, 'OUTPUT')).create();
+
+    await renamer.processItems(
+      [item],
+      scanRoot: movieDir.path,
+      outputDir: outputDir.path,
+      interactive: false,
+      mode: RenameMode.copy, // Use copy to keep source
+    );
+
+    // Source should exist (because copy)
+    expect(await file.exists(), isTrue);
+
+    // Target should be in OUTPUT directory
+    final targetPath = p.join(
+      outputDir.path,
+      'Custom Movie (2024)',
+      'Custom Movie (2024).mkv',
+    );
+    expect(await File(targetPath).exists(), isTrue);
+  });
 }

@@ -100,6 +100,11 @@ abstract class BaseRenameCommand extends Command<void> {
         help: 'Rename mode (move, copy, hardlink, symlink)',
         defaultsTo: 'move',
         allowed: ['move', 'copy', 'hardlink', 'symlink'],
+      )
+      ..addOption(
+        'output',
+        abbr: 'o',
+        help: 'Specific output directory for renamed files',
       );
   }
 
@@ -143,6 +148,7 @@ abstract class BaseRenameCommand extends Command<void> {
       'symlink' => RenameMode.symLink,
       _ => RenameMode.move,
     };
+    final outputDir = argResults?['output'] as String?;
 
     final scanner = MediaScanner(logger: logger);
     final renamer = MediaRenamer(logger: logger);
@@ -178,6 +184,7 @@ abstract class BaseRenameCommand extends Command<void> {
           await renamer.processItems(
             items,
             scanRoot: path,
+            outputDir: outputDir,
             dryRun: dryRun,
             interactive: interactive,
             mode: mode,

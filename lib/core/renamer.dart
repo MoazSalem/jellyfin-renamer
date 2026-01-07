@@ -50,6 +50,7 @@ class MediaRenamer {
   final List<RenameOperation> _plannedOperations = [];
   final Map<String, UndoLogger> _loggers = {};
   late String? _scanRoot;
+  String? _customOutputDir;
   bool _isSingleShowScan = false;
 
   /// Processes a list of media items,
@@ -60,15 +61,17 @@ class MediaRenamer {
   Future<void> processItems(
     List<MediaItem> items, {
     required String scanRoot,
+    String? outputDir,
     bool dryRun = false,
     bool interactive = true,
     RenameMode mode = RenameMode.move,
   }) async {
     _logger.debug(
       'processItems called with ${items.length} items. dryRun=$dryRun, '
-      'interactive=$interactive, mode=$mode',
+      'interactive=$interactive, mode=$mode, outputDir=$outputDir',
     );
     _scanRoot = scanRoot;
+    _customOutputDir = outputDir;
     _plannedOperations.clear();
 
     // Group items by type
@@ -180,6 +183,7 @@ class MediaRenamer {
   Future<void> processItem(
     MediaItem item, {
     required String scanRoot,
+    String? outputDir,
     bool dryRun = false,
     bool interactive = true,
     RenameMode mode = RenameMode.move,
@@ -187,6 +191,7 @@ class MediaRenamer {
     await processItems(
       [item],
       scanRoot: scanRoot,
+      outputDir: outputDir,
       dryRun: dryRun,
       interactive: interactive,
       mode: mode,
@@ -194,6 +199,9 @@ class MediaRenamer {
   }
 
   String _getOutputBaseDirectory() {
+    if (_customOutputDir != null) {
+      return _customOutputDir!;
+    }
     if (_isSingleShowScan) {
       return path.dirname(_scanRoot!);
     } else {
@@ -478,20 +486,34 @@ class MediaRenamer {
       try {
         switch (mode) {
           case RenameMode.move:
-            await sourceFile.rename(targetPath);
+            try {
+              await sourceFile.rename(targetPath);
+            } on FileSystemException catch (e) {
+              // Fallback for cross-drive moves (error 17 on Windows, 18 on Linux usually)
+              _logger.debug(
+                'Rename failed (likely cross-drive), attempting copy-delete: ${e.message}',
+              );
+              await sourceFile.copy(targetPath);
+              await sourceFile.delete();
+            }
           case RenameMode.copy:
             await sourceFile.copy(targetPath);
           case RenameMode.symLink:
             await Link(targetPath).create(op.sourcePath);
           case RenameMode.hardLink:
-            await _createHardLink(op.sourcePath, targetPath);
+            try {
+              await _createHardLink(op.sourcePath, targetPath);
+            } catch (e) {
+              throw Exception(
+                'Hard link creation failed. Note: Hard links cannot span different drives. Error: $e',
+              );
+            }
         }
       } catch (e) {
         _logger.error(
           'Failed to ${mode.name} ${op.sourcePath} to $targetPath: $e',
         );
-        // Continue with other files? Or rethrow?
-        // For now, log error and continue
+        // Continue with other files
       }
     }
 

@@ -250,6 +250,8 @@ Example:
 - `-d, --dry-run`: Preview changes without applying them
 - `-i, --interactive`: Prompt for confirmation (default: true)
 - `-l, --log`: Path to undo log file (default: rename_log.json)
+- `-o, --output`: Specific output directory for renamed files. If not specified, uses strict mode logic or scans root.
+- `-m, --mode`: Rename mode (move, copy, hardlink, symlink)
 
 ### Rename Single Command (alias: `rs`)
 - `-p, --path`: Path to the show or movie folder (required)
