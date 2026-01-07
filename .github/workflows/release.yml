@@ -1,0 +1,71 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: renamer
+            asset_name: renamer-linux
+          - os: windows-latest
+            artifact_name: renamer.exe
+            asset_name: renamer-windows.exe
+          - os: macos-latest
+            artifact_name: renamer
+            asset_name: renamer-macos
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Install dependencies
+        run: dart pub get
+
+      - name: Build executable
+        run: dart compile exe bin/main.dart -o ${{ matrix.artifact_name }}
+
+      - name: Rename asset
+        if: matrix.os != 'windows-latest'
+        run: mv ${{ matrix.artifact_name }} ${{ matrix.asset_name }}
+
+      - name: Rename asset (Windows)
+        if: matrix.os == 'windows-latest'
+        run: move ${{ matrix.artifact_name }} ${{ matrix.asset_name }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: ${{ matrix.asset_name }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            */renamer-linux
+            */renamer-windows.exe
+            */renamer-macos
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
