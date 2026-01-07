@@ -68,4 +68,4 @@ jobs:
             */renamer-windows.exe
             */renamer-macos
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
