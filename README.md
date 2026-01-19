@@ -1,6 +1,13 @@
 # Jellyfin Media Library Renamer
+[![Dart](https://img.shields.io/badge/Dart-Language-0175C2?logo=dart)](https://dart.dev)
+[![Build](https://github.com/moazsalem/jellyfin-renamer/actions/workflows/release.yml/badge.svg)](https://github.com/moazsalem/jellyfin-renamer/actions)
+[![Release Version](https://img.shields.io/github/release/MoazSalem/jellyfin-renamer.svg)](https://github.com/MoazSalem/jellyfin-renamer/releases)
+[![Downloads Count](https://img.shields.io/github/downloads/MoazSalem/jellyfin-renamer/total?logo=github&amp;label=Downloads)](https://github.com/MoazSalem/jellyfin-renamer/releases)
+[![GitHub stars](https://img.shields.io/github/stars/moazsalem/jellyfin-renamer?style=social)](https://github.com/moazsalem/jellyfin-renamer/stargazers)
 
 A command-line tool for renaming media libraries to comply with [Jellyfin's official naming conventions](https://jellyfin.org/docs/general/server/media/) for both TV Shows and Movies.
+
+---
 
 <div align=center>
 <img height="600" alt="image" src="https://github.com/user-attachments/assets/64b75703-a9a5-4552-af8f-152f423c0581" />
