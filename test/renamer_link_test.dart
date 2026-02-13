@@ -15,7 +15,7 @@ void main() {
   });
 
   tearDown(() async {
-    if (await tempDir.exists()) {
+    if (tempDir.existsSync()) {
       await tempDir.delete(recursive: true);
     }
   });
@@ -39,12 +39,11 @@ void main() {
       [item],
       scanRoot: movieDir.path,
       interactive: false,
-      mode: RenameMode.move,
     );
 
     // Assert
     // 1. Source file should be gone
-    expect(await file.exists(), isFalse);
+    expect(file.existsSync(), isFalse);
 
     // 2. Target file should exist
     final targetPath = p.join(
@@ -52,11 +51,11 @@ void main() {
       'My Movie (2020)',
       'My Movie (2020).mkv',
     );
-    expect(await File(targetPath).exists(), isTrue);
+    expect(File(targetPath).existsSync(), isTrue);
 
     // 3. Undo log should exist
     final logPath = p.join(tempDir.path, 'My Movie (2020)', 'rename_log.json');
-    expect(await File(logPath).exists(), isTrue);
+    expect(File(logPath).existsSync(), isTrue);
   });
 
   test('RenameMode.copy copies file and does NOT create undo log', () async {
@@ -82,7 +81,7 @@ void main() {
 
     // Assert
     // 1. Source file should still exist
-    expect(await file.exists(), isTrue);
+    expect(file.existsSync(), isTrue);
 
     // 2. Target file should exist
     final targetPath = p.join(
@@ -90,7 +89,7 @@ void main() {
       'Copy Movie (2021)',
       'Copy Movie (2021).mkv',
     );
-    expect(await File(targetPath).exists(), isTrue);
+    expect(File(targetPath).existsSync(), isTrue);
 
     // 3. Undo log should NOT exist
     final logPath = p.join(
@@ -98,7 +97,7 @@ void main() {
       'Copy Movie (2021)',
       'rename_log.json',
     );
-    expect(await File(logPath).exists(), isFalse);
+    expect(File(logPath).existsSync(), isFalse);
   });
 
   test(
@@ -125,7 +124,7 @@ void main() {
           mode: RenameMode.symLink,
         );
 
-        expect(await file.exists(), isTrue);
+        expect(file.existsSync(), isTrue);
         final targetPath = p.join(
           tempDir.path,
           'Link Movie (2022)',
@@ -137,6 +136,8 @@ void main() {
         if (await Link(targetPath).exists()) {
           expect(await Link(targetPath).exists(), isTrue);
         } else {
+          // Print to inform user about skipped verification
+          // ignore: avoid_print
           print('Skipping symlink verification (OS/Privilege issue)');
         }
 
@@ -146,14 +147,19 @@ void main() {
           'Link Movie (2022)',
           'rename_log.json',
         );
-        expect(await File(logPath).exists(), isFalse);
+        expect(File(logPath).existsSync(), isFalse);
+        // Catching any exception to skip test gracefully if OS/Privilege fails
+        // ignore: avoid_catches_without_on_clauses
       } catch (e) {
+        // Print usage needed for test feedback
+        // ignore: avoid_print
         print('Skipping symlink test due to error: $e');
       }
     },
   );
 
-  // Note: hardLink test might require admin privileges on Windows or fail if temp is on different drive,
+  // Note: hardLink test might require admin privileges on Windows
+  // or fail if temp is on different drive,
   // but usually temp dir is on C: which is standard.
   test(
     'RenameMode.hardLink creates hard link and does NOT create undo log',
@@ -186,8 +192,8 @@ void main() {
         );
         final targetFile = File(targetPath);
 
-        expect(await file.exists(), isTrue);
-        expect(await targetFile.exists(), isTrue);
+        expect(file.existsSync(), isTrue);
+        expect(targetFile.existsSync(), isTrue);
         expect(await targetFile.readAsString(), 'content');
 
         // Undo log should NOT exist
@@ -196,9 +202,13 @@ void main() {
           'Hard Movie (2023)',
           'rename_log.json',
         );
-        expect(await File(logPath).exists(), isFalse);
+        expect(File(logPath).existsSync(), isFalse);
+        // Catching any exception to skip test gracefully if OS/Privilege fails
+        // ignore: avoid_catches_without_on_clauses
       } catch (e) {
         // If we don't have permission to create links, we skip but note it
+        // Print usage needed for test feedback
+        // ignore: avoid_print
         print(
           'Skipping hardlink test due to possible permission/OS issues: $e',
         );
@@ -231,7 +241,7 @@ void main() {
     );
 
     // Source should exist (because copy)
-    expect(await file.exists(), isTrue);
+    expect(file.existsSync(), isTrue);
 
     // Target should be in OUTPUT directory
     final targetPath = p.join(
@@ -239,6 +249,6 @@ void main() {
       'Custom Movie (2024)',
       'Custom Movie (2024).mkv',
     );
-    expect(await File(targetPath).exists(), isTrue);
+    expect(File(targetPath).existsSync(), isTrue);
   });
 }

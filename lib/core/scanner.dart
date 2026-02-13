@@ -604,7 +604,8 @@ class MediaScanner {
     }
 
     // 3. Movie year pattern (unambiguous Movie)
-    if (RegExp(r'\b(19|20)\d{2}\b').hasMatch(fileName)) {
+    // Allow year to be surrounded by non-alphanumeric characters or underscores
+    if (RegExp(r'(?:^|[\W_])((?:19|20)\d{2})(?:$|[\W_])').hasMatch(fileName)) {
       return MediaType.movie;
     }
 

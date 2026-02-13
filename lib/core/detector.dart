@@ -32,7 +32,10 @@ class MediaDetector {
     // Check filename for year pattern (like Movie.2010.mkv) -
     // indicates movies
     final hasYearInFilename = files.any(
-      (file) => RegExp(r'\b(19|20)\d{2}\b').hasMatch(file),
+      // Allow year to be surrounded by non-alphanumeric
+      // characters or underscores
+      (file) =>
+          RegExp(r'(?:^|[\W_])((?:19|20)\d{2})(?:$|[\W_])').hasMatch(file),
     );
 
     if (hasYearInFilename) {

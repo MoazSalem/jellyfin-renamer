@@ -34,8 +34,11 @@ class TitleProcessor {
     // First, extract the year from the raw filename.
     // We do this before cleaning because cleaning might
     // remove parentheses containing the year.
-    final yearMatch = RegExp(r'\b(19|20)\d{2}\b').firstMatch(fileName);
-    final year = yearMatch != null ? int.tryParse(yearMatch.group(0)!) : null;
+    // Allow year to be surrounded by non-alphanumeric characters or underscores
+    final yearMatch = RegExp(
+      r'(?:^|[\W_])((?:19|20)\d{2})(?:$|[\W_])',
+    ).firstMatch(fileName);
+    final year = yearMatch != null ? int.tryParse(yearMatch.group(1)!) : null;
 
     // Clean the filename
     final cleanName = _cleanFilename(fileName);
@@ -45,7 +48,7 @@ class TitleProcessor {
       r'\bSeason\b',
       r'S\d{1,2}E\d{1,2}',
       r'\bS\d{1,2}\b',
-      r'\b(19|20)\d{2}\b', // Keep year here to find title boundary
+      r'(?:^|[\W_])((?:19|20)\d{2})(?:$|[\W_])', // Keep year here to find title boundary
       ...filenameFilterWords.map((word) => r'\b' + RegExp.escape(word) + r'\b'),
       ...FileExtensions.video.map(
         (ext) => r'\b' + RegExp.escape(ext.replaceAll('.', '')) + r'\b',

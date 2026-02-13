@@ -489,9 +489,11 @@ class MediaRenamer {
             try {
               await sourceFile.rename(targetPath);
             } on FileSystemException catch (e) {
-              // Fallback for cross-drive moves (error 17 on Windows, 18 on Linux usually)
+              // Fallback for cross-drive moves
+              // (error 17 on Windows, 18 on Linux usually)
               _logger.debug(
-                'Rename failed (likely cross-drive), attempting copy-delete: ${e.message}',
+                'Rename failed (likely cross-drive), '
+                'attempting copy-delete: ${e.message}',
               );
               await sourceFile.copy(targetPath);
               await sourceFile.delete();
@@ -505,7 +507,8 @@ class MediaRenamer {
               await _createHardLink(op.sourcePath, targetPath);
             } catch (e) {
               throw Exception(
-                'Hard link creation failed. Note: Hard links cannot span different drives. Error: $e',
+                'Hard link creation failed. Note: Hard links cannot span'
+                ' different drives. Error: $e',
               );
             }
         }
