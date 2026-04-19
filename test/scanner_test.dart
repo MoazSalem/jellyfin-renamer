@@ -191,6 +191,18 @@ void main() {
         expect(episode?.episodeNumberStart, equals(3));
       });
 
+      test('should extract episode number from brackets [10]', () {
+        final episode = scanner.extractEpisodeInfo('Show Name [10].mkv');
+        expect(episode?.seasonNumber, equals(1));
+        expect(episode?.episodeNumberStart, equals(10));
+      });
+
+      test('should extract episode number from parentheses (10)', () {
+        final episode = scanner.extractEpisodeInfo(r'Season 02\Gintama (10).mkv');
+        expect(episode?.seasonNumber, equals(2));
+        expect(episode?.episodeNumberStart, equals(10));
+      });
+
     test(
       'should parse "Title-Episode" pattern when matching parent directory',
       () {

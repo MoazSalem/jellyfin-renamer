@@ -401,15 +401,15 @@ class MediaScanner {
       }
     }
 
-    // Pattern: Bracketed number [01]
-    final bracketedMatch = RegExp(r'\[(\d{1,3})\]').firstMatch(fileName);
+    // Pattern: Bracketed or Parenthesized number [01] or (01)
+    final bracketedMatch = RegExp(r'[\[\(](\d{1,3}(?:\.\d{1,2})?)[\]\)]').firstMatch(fileName);
     if (bracketedMatch != null) {
-      _logger.debug('Matched bracketed number pattern.');
-      final num = int.parse(bracketedMatch.group(1)!);
-      // Avoid matching years (e.g. [2023])
-      if (num < 1900) {
+      _logger.debug('Matched bracketed/parenthesized number pattern.');
+      final parsedNum = num.parse(bracketedMatch.group(1)!);
+      // Avoid matching years (e.g. [2023] or (2023))
+      if (parsedNum < 1900) {
         final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
-        return Episode(seasonNumber: seasonNum, episodeNumberStart: num);
+        return Episode(seasonNumber: seasonNum, episodeNumberStart: parsedNum);
       }
     }
 
@@ -618,7 +618,7 @@ class MediaScanner {
 
     // Pattern: Anime Release Group [Group] Title - 01 [Tags]
     if (RegExp(
-      r'^\[.+?\]\s*.+?\s*-\s*\d{1,4}(?:\.\d{1,2})?(?!\d)',
+      r'^\[.+?\][-\s_]*.+?[-\s_]+\d{1,4}(?:\.\d{1,2})?(?!\d)',
     ).hasMatch(fileName)) {
       return MediaType.tvShow;
     }
@@ -633,6 +633,10 @@ class MediaScanner {
       }
       // Check for attached number at end (e.g. ShowName1)
       if (RegExp(r'\d{1,3}(?:\.\d{1,2})?$').hasMatch(fileName)) {
+        return MediaType.tvShow;
+      }
+      // Check for parenthesized or bracketed number (e.g. ShowName (1) or [1])
+      if (RegExp(r'[\[\(]\d{1,3}(?:\.\d{1,2})?[\]\)]').hasMatch(fileName)) {
         return MediaType.tvShow;
       }
     }
