@@ -354,7 +354,7 @@ class MediaScanner {
 
     // Pattern 5: 101 (single) - 3-digit episode code
     final threeDigitMatch = RegExp(
-      r'\b(\d{1,2})(\d{2})\b',
+      r'(?<!\d[-_])\b(\d{1,2})(\d{2})\b(?![-_]\d)',
     ).firstMatch(fileName);
     if (threeDigitMatch != null) {
       _logger.debug('Matched 3-digit single episode pattern.');
@@ -480,44 +480,49 @@ class MediaScanner {
       return Episode(seasonNumber: 1, episodeNumberStart: episodeNum);
     }
 
-    // Pattern 8: Title-Episode pattern (e.g., "Show Name - 01 [Extra]")
-    final titleEpisodeMatch = RegExp(
-      r'^(.+?)[-\s_]+(\d{1,3}(?:\.\d{1,2})?)(?!\d)(?:[-\s_\[\(].*)?$',
-    ).firstMatch(fileName);
-    if (titleEpisodeMatch != null) {
-      final titlePart = titleEpisodeMatch.group(1)!.trim();
-      final episodeNum = num.parse(titleEpisodeMatch.group(2)!);
-
-      // Verify against parent directory to be safe
-      if (_isFuzzyMatch(titlePart, parentDirName)) {
-        final seasonNum = extractSeasonFromDirName(parentDirName);
-        if (seasonNum != null) {
-          return Episode(
-            seasonNumber: seasonNum,
-            episodeNumberStart: episodeNum,
-          );
-        }
-        // Assume season 1 if not otherwise specified
-        return Episode(seasonNumber: 1, episodeNumberStart: episodeNum);
-      }
-    }
-
-    // Pattern 9: Concatenated Show Name + Number (e.g. YakusokunoNeverland10)
+    // Pattern 8: Concatenated Show Name + Number (e.g. YakusokunoNeverland10)
     // Refined to handle fuzzy matches(e.g.NarutoShippuuden vs Naruto shippuden)
     // 1. Try to split filename into Text + Number
     final concatMatch = RegExp(
-      r'^([a-zA-Z0-9]+?)(\d{1,4}(?:\.\d{1,2})?)(?!\d)(?:END)?$',
+      r'^([a-zA-Z0-9]+?)(\d{1,4}(?:\.\d{1,2})?)(?:[-_]+(\d{1,4}(?:\.\d{1,2})?))?(?!\d)(?:END)?$',
     ).firstMatch(fileName);
     if (concatMatch != null) {
       final textPart = concatMatch.group(1)!;
       final numberPart = concatMatch.group(2)!;
+      final endNumberPart = concatMatch.group(3);
 
       // Verify text part matches parent directory
       if (_isFuzzyMatch(textPart, parentDirName)) {
         _logger.debug('Matched concatenated show name pattern (fuzzy).');
         final episodeNum = num.parse(numberPart);
+        final endEpisodeNum = endNumberPart != null ? num.parse(endNumberPart) : null;
         final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
-        return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
+        return Episode(
+          seasonNumber: seasonNum, 
+          episodeNumberStart: episodeNum,
+          episodeNumberEnd: endEpisodeNum,
+        );
+      }
+    }
+
+    // Pattern 9: Title-Episode pattern (e.g., "Show Name - 01 [Extra]")
+    final titleEpisodeMatch = RegExp(
+      r'^(.+?)[-\s_]+(\d{1,4}(?:\.\d{1,2})?)(?:[-_]+(\d{1,4}(?:\.\d{1,2})?))?(?!\d)(?:[-\s_\[\(].*)?$',
+    ).firstMatch(fileName);
+    if (titleEpisodeMatch != null) {
+      final titlePart = titleEpisodeMatch.group(1)!.trim();
+      final episodeNum = num.parse(titleEpisodeMatch.group(2)!);
+      final endEpisodeNumStr = titleEpisodeMatch.group(3);
+      final endEpisodeNum = endEpisodeNumStr != null ? num.parse(endEpisodeNumStr) : null;
+
+      // Verify against parent directory to be safe
+      if (_isFuzzyMatch(titlePart, parentDirName)) {
+        final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
+        return Episode(
+          seasonNumber: seasonNum,
+          episodeNumberStart: episodeNum,
+          episodeNumberEnd: endEpisodeNum,
+        );
       }
     }
 

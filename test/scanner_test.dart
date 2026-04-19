@@ -436,6 +436,24 @@ void main() {
       expect(result.episodeNumberStart, 10);
     });
 
+    test('should detect multi-episode concatenated names (NarutoShippuuden)', () {
+      var result = scanner.extractEpisodeInfo(
+        'Naruto shippuden/NarutoShippuuden103-104.mp4',
+      );
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 103);
+      expect(result.episodeNumberEnd, 104);
+
+      result = scanner.extractEpisodeInfo(
+        'Naruto shippuden/NarutoShippuuden119-120.mp4',
+      );
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 119);
+      expect(result.episodeNumberEnd, 120);
+    });
+
     test('should detect YakusokunoNeverlandEND12', () {
       // Yakusoku no Neverland/YakusokunoNeverlandEND12.mp4
       final result = scanner.extractEpisodeInfo(
