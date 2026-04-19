@@ -175,6 +175,22 @@ void main() {
       expect(result.episodeNumberEnd, isNull);
     });
 
+      test('should extract episode with underscores and release group', () {
+        final episode = scanner.extractEpisodeInfo(
+          r'\\192.168.1.62\Anime\Gintama\Season 01\[DB]Gintama_-_003_(10bit).mkv',
+        );
+        expect(episode?.seasonNumber, equals(1));
+        expect(episode?.episodeNumberStart, equals(3));
+      });
+
+      test('should fall back to season 1 for release group if no folder', () {
+        final episode = scanner.extractEpisodeInfo(
+          r'[DB]Gintama_-_003_(10bit).mkv',
+        );
+        expect(episode?.seasonNumber, equals(1));
+        expect(episode?.episodeNumberStart, equals(3));
+      });
+
     test(
       'should parse "Title-Episode" pattern when matching parent directory',
       () {

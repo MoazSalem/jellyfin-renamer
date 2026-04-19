@@ -302,19 +302,15 @@ class MediaScanner {
     // Check this FIRST as it is very specific and high confidence.
     // This avoids issues where other patterns (like 3-digit) match parts of the
     // tags (e.g. x.264 -> 264).
-    if (RegExp(
-      r'^\[.+?\]\s*.+?\s*-\s*\d{1,4}(?:\.\d{1,2})?(?!\d)',
-    ).hasMatch(fileName)) {
+    final animeGroupMatch = RegExp(
+      r'^\[.+?\][-\s_]*.+?[-\s_]+(\d{1,4}(?:\.\d{1,2})?)(?!\d)',
+    ).firstMatch(fileName);
+    if (animeGroupMatch != null) {
       _logger.debug('Matched Anime Release Group pattern.');
       // Extract the episode number from the pattern
-      final match = RegExp(
-        r'-\s*(\d{1,4}(?:\.\d{1,2})?)(?!\d)',
-      ).firstMatch(fileName);
-      if (match != null) {
-        final episodeNum = num.parse(match.group(1)!);
-        final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
-        return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
-      }
+      final episodeNum = num.parse(animeGroupMatch.group(1)!);
+      final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
+      return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
     }
 
     final cleanTitle = TitleProcessor.extractTitleUntilKeywords(fileName).title ?? '';
