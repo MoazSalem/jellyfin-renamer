@@ -317,6 +317,9 @@ class MediaScanner {
       }
     }
 
+    final cleanTitle = TitleProcessor.extractTitleUntilKeywords(fileName).title ?? '';
+    final isPureNumberTitle = RegExp(r"^[\d\s\-_.,']+$").hasMatch(cleanTitle);
+
     // 3-Digit Patterns
     // Pattern 3: 323-324 or 323-24
     final threeDigitMultiMatch = RegExp(
@@ -334,6 +337,10 @@ class MediaScanner {
           _logger.debug(
             'Skipping 3-digit pattern because folder season ($folderSeason) '
             'mismatches parsed season ($seasonNum).',
+          );
+        } else if (folderSeason == null && isPureNumberTitle) {
+          _logger.debug(
+            'Skipping 3-digit multi pattern for pure numbers without season folder.',
           );
         } else {
           return Episode(
@@ -384,6 +391,10 @@ class MediaScanner {
           _logger.debug(
             'Skipping 3-digit pattern because folder season ($folderSeason)'
             ' mismatches parsed season ($seasonNum).',
+          );
+        } else if (folderSeason == null && isPureNumberTitle) {
+          _logger.debug(
+            'Skipping 3-digit pattern for pure number without season folder.',
           );
         } else {
           return Episode(
@@ -510,12 +521,34 @@ class MediaScanner {
       }
     }
 
-    // 10. Absolute Numbering Fallback (e.g. 100.mp4, 1000.mp4)
-    if (RegExp(r'^\d{1,4}(?:\.\d{1,2})?$').hasMatch(fileName)) {
-      _logger.debug('Matched absolute numbering fallback.');
-      final episodeNum = num.parse(fileName);
-      final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
-      return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
+    // 10. Absolute Numbering Fallback
+    if (isPureNumberTitle) {
+      // 10a. Multi-episode absolute numbering (e.g. 100-101.mp4, 268.269)
+      final absoluteMultiMatch = RegExp(
+        r'^[\s\-_.,' "'" r']*(\d{1,4})[\s\-_.,' "'" r']+(\d{1,4})[\s\-_.,' "'" r']*$',
+      ).firstMatch(cleanTitle);
+      if (absoluteMultiMatch != null) {
+        _logger.debug('Matched absolute multi-episode numbering fallback.');
+        final startEp = int.parse(absoluteMultiMatch.group(1)!);
+        final endEp = int.parse(absoluteMultiMatch.group(2)!);
+        final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
+        return Episode(
+          seasonNumber: seasonNum,
+          episodeNumberStart: startEp,
+          episodeNumberEnd: endEp,
+        );
+      }
+
+      // 10b. Single episode absolute numbering (e.g. 100.mp4, 1000.mp4, 402 Bluray)
+      final absoluteMatch = RegExp(
+        r'^[\s\-_.,' "'" r']*(\d{1,4}(?:\.\d{1,2})?)[\s\-_.,' "'" r']*$',
+      ).firstMatch(cleanTitle);
+      if (absoluteMatch != null) {
+        _logger.debug('Matched absolute numbering fallback.');
+        final episodeNum = num.parse(absoluteMatch.group(1)!);
+        final seasonNum = extractSeasonFromDirName(parentDirName) ?? 1;
+        return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
+      }
     }
 
     // 11. Parenthesized Number (e.g. Show Name (1))
@@ -665,8 +698,11 @@ class MediaScanner {
       }
     }
 
-    // 7. Absolute Numbering Fallback (e.g. 100.mp4, 1000.mp4)
-    if (RegExp(r'^\d{1,4}(?:\.\d{1,2})?$').hasMatch(fileName)) {
+    // 7. Absolute Numbering Fallback (e.g. 100.mp4, 1000.mp4, 100-101.mp4)
+    final cleanTitle = TitleProcessor.extractTitleUntilKeywords(fileName).title ?? '';
+    final isPureNumberTitle = RegExp(r"^[\d\s\-_.,']+$").hasMatch(cleanTitle);
+    
+    if (isPureNumberTitle) {
       return MediaType.tvShow;
     }
 

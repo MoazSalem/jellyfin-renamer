@@ -371,6 +371,43 @@ void main() {
       },
     );
 
+    test(
+      'should detect decorated absolute numbering for long running shows (Naruto)',
+      () {
+        // Naruto/402 Bluray.mp4 -> Season 1, Episode 402
+        var result = scanner.extractEpisodeInfo('Naruto/402 Bluray.mp4');
+        expect(result, isNotNull);
+        expect(result!.seasonNumber, 1);
+        expect(result.episodeNumberStart, 402);
+      },
+    );
+
+    test(
+      'should detect absolute numbering with decorators and separators (Fairy Tail)',
+      () {
+        // Fairy Tail/227. 228.mp4 -> Season 1, Episode 227-228
+        var result = scanner.extractEpisodeInfo('Fairy Tail/227. 228.mp4');
+        expect(result, isNotNull);
+        expect(result!.seasonNumber, 1);
+        expect(result.episodeNumberStart, 227);
+        expect(result.episodeNumberEnd, 228);
+
+        // Fairy Tail/215 ' 216 .mp4 -> Season 1, Episode 215-216
+        result = scanner.extractEpisodeInfo('Fairy Tail/215 \' 216 .mp4');
+        expect(result, isNotNull);
+        expect(result!.seasonNumber, 1);
+        expect(result.episodeNumberStart, 215);
+        expect(result.episodeNumberEnd, 216);
+
+        // Fairy Tail/268.269.mp4 -> Season 1, Episode 268-269
+        result = scanner.extractEpisodeInfo('Fairy Tail/268.269.mp4');
+        expect(result, isNotNull);
+        expect(result!.seasonNumber, 1);
+        expect(result.episodeNumberStart, 268);
+        expect(result.episodeNumberEnd, 269);
+      },
+    );
+
     test('should detect fuzzy attached numbers (Naruto Shippuden)', () {
       // Naruto shippuden/NarutoShippuuden307.mp4
       // Note: "shippuden" vs "Shippuuden" (extra u)
