@@ -21,6 +21,22 @@ void main() {
       final result = detector.detectType('.', ['unknown_file.mkv']);
       expect(result, MediaType.unknown);
     });
+
+    test('detects movie from year in parent folder', () {
+      final result = detector.detectType(
+        'Movie Folder (2010)',
+        ['Movie.File.mkv'],
+      );
+      expect(result, MediaType.movie);
+    });
+
+    test('detects movie from video files in subdirectory', () {
+      final result = detector.detectType(
+        'Some Movie Folder',
+        ['movie_file.mkv'],
+      );
+      expect(result, MediaType.movie);
+    });
   });
 
   group('MediaScanner', () {

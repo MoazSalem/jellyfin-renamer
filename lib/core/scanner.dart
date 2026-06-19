@@ -250,9 +250,9 @@ class MediaScanner {
 
     // SxxExx Patterns (most specific first)
     // Pattern 1: S01E01-E02 or S01E01E02 (multi-episode)
-    // Requires E prefix on second episode to avoid false positives
+    // Allows optional space between Sxx and Exx, and between episodes
     final multiEpMatch = RegExp(
-      r'S(\d{1,2})E(\d{1,2})-?E(\d{1,2})',
+      r'S(\d{1,2})\s*E(\d{1,2})\s*-?\s*E(\d{1,2})',
       caseSensitive: false,
     ).firstMatch(fileName);
     if (multiEpMatch != null) {
@@ -268,9 +268,9 @@ class MediaScanner {
     }
 
     // Pattern 1a: S01E01-02 (multi-episode without E prefix)
-    // Requires dash separator and proper ending (not followed by digits)
+    // Allows optional space between Sxx and Exx
     final multiEpDashMatch = RegExp(
-      r'S(\d{1,2})E(\d{1,2})-(\d{1,2})(?![\d])',
+      r'S(\d{1,2})\s*E(\d{1,2})\s*-\s*(\d{1,2})(?![\d])',
       caseSensitive: false,
     ).firstMatch(fileName);
     if (multiEpDashMatch != null) {
@@ -285,9 +285,9 @@ class MediaScanner {
       );
     }
 
-    // Pattern 2: S01E01 (single)
+    // Pattern 2: S01E01 (single) - allows optional space
     final singleEpMatch = RegExp(
-      r'S(\d{1,2})E(\d{1,2}(?:\.\d{1,2})?)(?!\d)',
+      r'S(\d{1,2})\s*E(\d{1,2}(?:\.\d{1,2})?)(?!\d)',
       caseSensitive: false,
     ).firstMatch(fileName);
     if (singleEpMatch != null) {
@@ -606,29 +606,56 @@ class MediaScanner {
     final fileName = path.basenameWithoutExtension(filePath);
     final parentDirName = path.basename(path.dirname(filePath));
 
-    // 1. SxxExx patterns (unambiguous TV)
-    if (RegExp(r'S\d{1,2}E\d{1,2}', caseSensitive: false).hasMatch(fileName)) {
+    // 1. Movie year pattern (check EARLY to avoid false TV matches)
+    // Year in filename (e.g., "Movie.2010.mkv", "(2013)")
+    if (RegExp(
+      r'(?:^|[\W_])((?:19|20)\d{2})(?:$|[\W_])',
+    ).hasMatch(fileName)) {
+      return MediaType.movie;
+    }
+
+    // 1a. Movie year in parent folder (e.g., "State Of Play (2009)")
+    if (RegExp(
+      r'(?:^|[\W_])((?:19|20)\d{2})(?:$|[\W_])',
+    ).hasMatch(parentDirName)) {
+      return MediaType.movie;
+    }
+
+    // 2. SxxExx patterns (unambiguous TV)
+    if (RegExp(
+      r'S\d{1,2}\s*E\d{1,2}',
+      caseSensitive: false,
+    ).hasMatch(fileName)) {
       return MediaType.tvShow;
     }
 
     // NxYY patterns (e.g., 1x01, 02x15)
-    if (RegExp(r'\d{1,2}x\d{1,2}', caseSensitive: false).hasMatch(fileName)) {
-      return MediaType.tvShow;
-    }
-
-    if (RegExp(r'episode\s*\d+', caseSensitive: false).hasMatch(fileName)) {
+    if (RegExp(
+      r'\d{1,2}x\d{1,2}',
+      caseSensitive: false,
+    ).hasMatch(fileName)) {
       return MediaType.tvShow;
     }
 
     if (RegExp(
-      r'(?:\bep?[\s-]*|الحلقة\s*)(\d+(?:\.\d{1,2})?)(?!\d)',
+      r'episode\s*\d+',
+      caseSensitive: false,
+    ).hasMatch(fileName)) {
+      return MediaType.tvShow;
+    }
+
+    if (RegExp(
+      r'(?:\bep?[\s-]*|الحلقة\s*)'
+      r'(\d+(?:\.\d{1,2})?)(?!\d)',
       caseSensitive: false,
     ).hasMatch(fileName)) {
       return MediaType.tvShow;
     }
 
     // Pattern: Bracketed number [01]
-    final bracketedMatch = RegExp(r'\[(\d{1,3})\]').firstMatch(fileName);
+    final bracketedMatch = RegExp(
+      r'\[(\d{1,3})\]',
+    ).firstMatch(fileName);
     if (bracketedMatch != null) {
       final num = int.parse(bracketedMatch.group(1)!);
       if (num < 1900) {
@@ -637,54 +664,72 @@ class MediaScanner {
     }
 
     // Pattern: Parenthesized number (1) or (01)
-    // Ignore years (1900-2100)
-    final parenMatch = RegExp(r'\((\d{1,4}(?:\.\d+)?)\)').allMatches(fileName);
+    // Ignore years (1900-2100) and small numbers at end of filename
+    // (common download site pattern like "(1)" for copy number)
+    final parenMatch = RegExp(
+      r'\((\d{1,4}(?:\.\d+)?)\)',
+    ).allMatches(fileName);
     for (final match in parenMatch) {
       final numStr = match.group(1)!;
       if (!numStr.contains('.')) {
         final num = int.parse(numStr);
         if (num < 1900 || num > 2100) {
-          return MediaType.tvShow;
+          // Only treat as episode if preceded by "episode" or "ep"
+          // keyword, or if it's a known season/episode pattern
+          final beforeMatch = fileName.substring(
+            0,
+            match.start,
+          );
+          if (RegExp(
+            r'(?:season|ep(?:isode)?)\s*$',
+            caseSensitive: false,
+          ).hasMatch(beforeMatch)) {
+            return MediaType.tvShow;
+          }
         }
       } else {
-        // Fractional is definitely an episode
         return MediaType.tvShow;
       }
     }
 
-    // Pattern: Anime Release Group [Group] Title - 01 [Tags]
+    // Pattern: Real anime release group
+    // [Group] Title - 01 [Tags]
+    // Must have dash/underscore before episode number
     if (RegExp(
-      r'^\[.+?\][-\s_]*.+?[-\s_]+\d{1,4}(?:\.\d{1,2})?(?!\d)',
+      r'^\[.+?\]\s*[-_]\s*.+?\s*[-_]\s*\d{1,4}'
+      r'(?:\.\d{1,2})?(?!\d)',
     ).hasMatch(fileName)) {
       return MediaType.tvShow;
     }
 
-    // 2. Season folder context (unambiguous TV)
+    // 3. Season folder context (unambiguous TV)
     if (extractSeasonFromDirName(parentDirName) != null) {
       // Check for numbered files inside
       if (RegExp(
-        r'^\d{1,3}(?:\.\d{1,2})?([-_]\d{1,3}(?:\.\d{1,2})?)?$',
+        r'^\d{1,3}(?:\.\d{1,2})?'
+        r'([-_]\d{1,3}(?:\.\d{1,2})?)?$',
       ).hasMatch(fileName)) {
         return MediaType.tvShow;
       }
       // Check for attached number at end (e.g. ShowName1)
-      if (RegExp(r'\d{1,3}(?:\.\d{1,2})?$').hasMatch(fileName)) {
+      if (RegExp(
+        r'\d{1,3}(?:\.\d{1,2})?$',
+      ).hasMatch(fileName)) {
         return MediaType.tvShow;
       }
-      // Check for parenthesized or bracketed number (e.g. ShowName (1) or [1])
-      if (RegExp(r'[\[\(]\d{1,3}(?:\.\d{1,2})?[\]\)]').hasMatch(fileName)) {
+      // Check for parenthesized or bracketed number
+      if (RegExp(
+        r'[\[\(]\d{1,3}(?:\.\d{1,2})?[\]\)]',
+      ).hasMatch(fileName)) {
         return MediaType.tvShow;
       }
-    }
-
-    // 3. Movie year pattern (unambiguous Movie)
-    // Allow year to be surrounded by non-alphanumeric characters or underscores
-    if (RegExp(r'(?:^|[\W_])((?:19|20)\d{2})(?:$|[\W_])').hasMatch(fileName)) {
-      return MediaType.movie;
     }
 
     // 3b. Movie keyword
-    if (RegExp(r'\bmovie\b', caseSensitive: false).hasMatch(fileName)) {
+    if (RegExp(
+      r'\bmovie\b',
+      caseSensitive: false,
+    ).hasMatch(fileName)) {
       return MediaType.movie;
     }
     // Arabic Movie keyword
@@ -694,11 +739,11 @@ class MediaScanner {
 
     // 4. 3-digit episode patterns (now less ambiguous)
     if (RegExp(r'\b\d{3,4}\b').hasMatch(fileName)) {
-      final match = RegExp(r'\b(\d{1,2})(\d{2})\b').firstMatch(fileName);
+      final match = RegExp(
+        r'\b(\d{1,2})(\d{2})\b',
+      ).firstMatch(fileName);
       if (match != null) {
         final seasonNum = int.parse(match.group(1)!);
-        // Allow season 0 (specials) or just treat 0 as season 1 if needed?
-        // For 001, seasonNum is 0.
         if (seasonNum >= 0 && seasonNum < 50) {
           return MediaType.tvShow;
         }
@@ -706,11 +751,9 @@ class MediaScanner {
     }
 
     // 5. Title-Episode pattern (e.g., "Show Name - 01 [Extra]")
-    // This is a heuristic: if the file ends in a number and the prefix
-    // matches the parent directory name, it's likely an episode.
-    // Allow underscores as separators too.
     final titleEpisodeMatch = RegExp(
-      r'^(.+?)[-\s_]+(\d{1,3}(?:\.\d{1,2})?)(?!\d)(?:[-\s_\[\(].*)?$',
+      r'^(.+?)[-\s_]+(\d{1,3}(?:\.\d{1,2})?)'
+      r'(?!\d)(?:[-\s_\[\(].*)?$',
     ).firstMatch(fileName);
     if (titleEpisodeMatch != null) {
       final titlePart = titleEpisodeMatch.group(1)!.trim();
@@ -718,19 +761,21 @@ class MediaScanner {
 
       // Avoid matching years (e.g. "Movie 2023")
       if (numberPart.length == 4 &&
-          (numberPart.startsWith('19') || numberPart.startsWith('20'))) {
+          (numberPart.startsWith('19') ||
+           numberPart.startsWith('20'))) {
         return MediaType.movie;
       }
 
-      // Check for fuzzy match between title part and parent directory
+      // Check for fuzzy match between title part and parent dir
       if (_isFuzzyMatch(titlePart, parentDirName)) {
         return MediaType.tvShow;
       }
     }
 
-    // 6. Concatenated Show Name + Number (e.g. YakusokunoNeverland10)
+    // 6. Concatenated Show Name + Number
     final concatMatch = RegExp(
-      r'^([a-zA-Z0-9]+?)(\d{1,4}(?:\.\d{1,2})?)(?!\d)(?:END)?$',
+      r'^([a-zA-Z0-9]+?)(\d{1,4}(?:\.\d{1,2})?)'
+      r'(?!\d)(?:END)?$',
     ).firstMatch(fileName);
     if (concatMatch != null) {
       final textPart = concatMatch.group(1)!;
@@ -739,15 +784,20 @@ class MediaScanner {
       }
     }
 
-    // 7. Absolute Numbering Fallback (e.g. 100.mp4, 1000.mp4, 100-101.mp4)
-    final cleanTitle = TitleProcessor.extractTitleUntilKeywords(fileName).title ?? '';
-    final isPureNumberTitle = RegExp(r"^[\d\s\-_.,']+$").hasMatch(cleanTitle);
-    
+    // 7. Absolute Numbering Fallback
+    final cleanTitle = TitleProcessor
+        .extractTitleUntilKeywords(fileName)
+        .title ?? '';
+    final isPureNumberTitle = RegExp(
+      r"^[\d\s\-_.,']+$",
+    ).hasMatch(cleanTitle);
+
     if (isPureNumberTitle) {
       return MediaType.tvShow;
     }
 
-    return MediaType.unknown;
+    // 8. Default to movie if no TV patterns detected
+    return MediaType.movie;
   }
 
   ({String? title, int? year}) _extractTitleInfo(String fileName) {

@@ -28,6 +28,16 @@ void main() {
       expect(result.episodeNumberEnd, isNull);
     });
 
+    test('should parse Sxx Exx format with space', () {
+      final result = scanner.extractEpisodeInfo(
+        'Game of Thrones S06 E01 720p.mkv',
+      );
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 6);
+      expect(result.episodeNumberStart, 1);
+      expect(result.episodeNumberEnd, isNull);
+    });
+
     test('should parse multi-episode SxxExx-Exx format', () {
       final result = scanner.extractEpisodeInfo('My.Show.S03E01-E02.mkv');
       expect(result, isNotNull);
