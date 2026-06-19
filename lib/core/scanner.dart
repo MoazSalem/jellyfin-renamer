@@ -291,9 +291,9 @@ class MediaScanner {
     }
 
     // Pattern 4: EP/E pattern (check before 3-digit to avoid false matches)
-    // Matches: EP 05, E05, e3, الحلقة 1, etc.
+    // Matches: EP 05, E05, e3, Ep-01, الحلقة 1, etc.
     final ePatternMatch = RegExp(
-      r'(?:\bep?\s*|الحلقة\s*)(\d+(?:\.\d{1,2})?)(?!\d)',
+      r'(?:\bep?[\s-]*|الحلقة\s*)(\d+(?:\.\d{1,2})?)(?!\d)',
       caseSensitive: false,
     ).firstMatch(fileName);
     if (ePatternMatch != null) {
@@ -602,7 +602,7 @@ class MediaScanner {
     }
 
     if (RegExp(
-      r'(?:\bep?\s*|الحلقة\s*)(\d+(?:\.\d{1,2})?)(?!\d)',
+      r'(?:\bep?[\s-]*|الحلقة\s*)(\d+(?:\.\d{1,2})?)(?!\d)',
       caseSensitive: false,
     ).hasMatch(fileName)) {
       return MediaType.tvShow;

@@ -171,6 +171,26 @@ void main() {
       expect(result.episodeNumberEnd, isNull);
     });
 
+    test('should parse "Ep-01" format with hyphen', () {
+      final result = scanner.extractEpisodeInfo(
+        'Ep-01.Undercover.mp4',
+      );
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 1);
+      expect(result.episodeNumberEnd, isNull);
+    });
+
+    test('should parse "Ep-01" format in season folder', () {
+      final result = scanner.extractEpisodeInfo(
+        'Brooklyn Nine-Nine Season 2/Ep-01.Undercover.mp4',
+      );
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 2);
+      expect(result.episodeNumberStart, 1);
+      expect(result.episodeNumberEnd, isNull);
+    });
+
     test('should parse "EP 05" format correctly', () {
       final result = scanner.extractEpisodeInfo(
         'My Show/MS EP 05 FHD.mp4',
