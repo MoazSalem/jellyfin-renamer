@@ -105,6 +105,16 @@ void main() {
       expect(result.episodeNumberEnd, isNull);
     });
 
+    test('should not confuse x264 with episode range', () {
+      final result = scanner.extractEpisodeInfo(
+        'friends_s01e01_720p_bluray_x264-sujaidr.mkv',
+      );
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 1);
+      expect(result.episodeNumberEnd, isNull);
+    });
+
     test('should parse "episode 01" format', () {
       final result = scanner.extractEpisodeInfo('My Show - episode 01.mkv');
       expect(result, isNotNull);

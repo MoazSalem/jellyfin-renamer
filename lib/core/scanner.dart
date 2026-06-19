@@ -249,9 +249,10 @@ class MediaScanner {
     _logger.debug('fileName: $fileName, parentDirName: $parentDirName');
 
     // SxxExx Patterns (most specific first)
-    // Pattern 1: S01E01-E02 or S01E01-02 (separator is mandatory)
+    // Pattern 1: S01E01-E02 or S01E01E02 (multi-episode)
+    // Requires E prefix on second episode to avoid false positives
     final multiEpMatch = RegExp(
-      r'S(\d{1,2})E(\d{1,2})[-_]E?(\d{1,2})',
+      r'S(\d{1,2})E(\d{1,2})-?E(\d{1,2})',
       caseSensitive: false,
     ).firstMatch(fileName);
     if (multiEpMatch != null) {
@@ -259,6 +260,24 @@ class MediaScanner {
       final seasonNum = int.parse(multiEpMatch.group(1)!);
       final startEp = int.parse(multiEpMatch.group(2)!);
       final endEp = int.parse(multiEpMatch.group(3)!);
+      return Episode(
+        seasonNumber: seasonNum,
+        episodeNumberStart: startEp,
+        episodeNumberEnd: endEp,
+      );
+    }
+
+    // Pattern 1a: S01E01-02 (multi-episode without E prefix)
+    // Requires dash separator and proper ending (not followed by digits)
+    final multiEpDashMatch = RegExp(
+      r'S(\d{1,2})E(\d{1,2})-(\d{1,2})(?![\d])',
+      caseSensitive: false,
+    ).firstMatch(fileName);
+    if (multiEpDashMatch != null) {
+      _logger.debug('Matched multi-episode SxxExx-xx pattern.');
+      final seasonNum = int.parse(multiEpDashMatch.group(1)!);
+      final startEp = int.parse(multiEpDashMatch.group(2)!);
+      final endEp = int.parse(multiEpDashMatch.group(3)!);
       return Episode(
         seasonNumber: seasonNum,
         episodeNumberStart: startEp,
