@@ -163,6 +163,16 @@ void main() {
       expect(result.episodeNumberEnd, isNull);
     });
 
+    test('should detect season from dotted folder name (Season.3.Complete)', () {
+      final result = scanner.extractEpisodeInfo(
+        'Brooklyn.Nine.Nine.Season.3.Complete.HD.720p/Ep-01.New.Captain.mp4',
+      );
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 3);
+      expect(result.episodeNumberStart, 1);
+      expect(result.episodeNumberEnd, isNull);
+    });
+
     test('should parse "الحلقة 1" format', () {
       final result = scanner.extractEpisodeInfo('My Show - الحلقة 1.mkv');
       expect(result, isNotNull);

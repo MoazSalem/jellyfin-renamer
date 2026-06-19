@@ -143,24 +143,27 @@ const ordinalToNumber = {
 int? extractSeasonFromDirName(String dirName) {
   final lowerDirName = dirName.toLowerCase();
 
+  // Replace dots with spaces for consistent matching
+  final normalizedDirName = lowerDirName.replaceAll('.', ' ');
+
   final seasonMatch = RegExp(
-    r'(?:season\s*|s|الموسم\s*)(\d+)$',
+    r'(?:season\s*|s|الموسم\s*)(\d+)',
     caseSensitive: false,
-  ).firstMatch(lowerDirName);
+  ).firstMatch(normalizedDirName);
   if (seasonMatch != null) {
     return int.tryParse(seasonMatch.group(1)!);
   }
 
   for (final entry in wordToNumber.entries) {
-    if (lowerDirName == 'season ${entry.key.toLowerCase()}' ||
-        lowerDirName == 'الموسم ${entry.key.toLowerCase()}') {
+    if (normalizedDirName == 'season ${entry.key.toLowerCase()}' ||
+        normalizedDirName == 'الموسم ${entry.key.toLowerCase()}') {
       return entry.value;
     }
   }
 
   for (final entry in ordinalToNumber.entries) {
-    if (lowerDirName == '${entry.key.toLowerCase()} season' ||
-        lowerDirName == 'الموسم ${entry.key.toLowerCase()}') {
+    if (normalizedDirName == '${entry.key.toLowerCase()} season' ||
+        normalizedDirName == 'الموسم ${entry.key.toLowerCase()}') {
       return entry.value;
     }
   }
