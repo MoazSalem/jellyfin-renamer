@@ -44,6 +44,22 @@ void main() {
       expect(result.episodeNumberEnd, 4);
     });
 
+    test('should parse NxYY format (1x01)', () {
+      final result = scanner.extractEpisodeInfo('Dexter.1x01.Pilot.avi');
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 1);
+      expect(result.episodeNumberStart, 1);
+      expect(result.episodeNumberEnd, isNull);
+    });
+
+    test('should parse NxYY format with double digit season (02x15)', () {
+      final result = scanner.extractEpisodeInfo('Show.02x15.Episode.avi');
+      expect(result, isNotNull);
+      expect(result!.seasonNumber, 2);
+      expect(result.episodeNumberStart, 15);
+      expect(result.episodeNumberEnd, isNull);
+    });
+
     test('should parse three-digit format', () {
       final result = scanner.extractEpisodeInfo('My.Show.205.mkv');
       expect(result, isNotNull);

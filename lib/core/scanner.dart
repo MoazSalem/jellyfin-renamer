@@ -278,6 +278,18 @@ class MediaScanner {
       return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
     }
 
+    // Pattern 2b: NxYY format (e.g., 1x01, 02x15)
+    final nxYYMatch = RegExp(
+      r'(\d{1,2})x(\d{1,2}(?:\.\d{1,2})?)(?!\d)',
+      caseSensitive: false,
+    ).firstMatch(fileName);
+    if (nxYYMatch != null) {
+      _logger.debug('Matched NxYY format pattern.');
+      final seasonNum = int.parse(nxYYMatch.group(1)!);
+      final episodeNum = num.parse(nxYYMatch.group(2)!);
+      return Episode(seasonNumber: seasonNum, episodeNumberStart: episodeNum);
+    }
+
     // Pattern 4: EP/E pattern (check before 3-digit to avoid false matches)
     // Matches: EP 05, E05, e3, الحلقة 1, etc.
     final ePatternMatch = RegExp(
@@ -577,6 +589,11 @@ class MediaScanner {
 
     // 1. SxxExx patterns (unambiguous TV)
     if (RegExp(r'S\d{1,2}E\d{1,2}', caseSensitive: false).hasMatch(fileName)) {
+      return MediaType.tvShow;
+    }
+
+    // NxYY patterns (e.g., 1x01, 02x15)
+    if (RegExp(r'\d{1,2}x\d{1,2}', caseSensitive: false).hasMatch(fileName)) {
       return MediaType.tvShow;
     }
 
