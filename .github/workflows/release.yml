@@ -15,6 +15,9 @@ jobs:
           - os: ubuntu-latest
             artifact_name: renamer
             asset_name: renamer-linux
+          - os: ubuntu-24.04-arm
+            artifact_name: renamer
+            asset_name: renamer-linux-arm
           - os: windows-latest
             artifact_name: renamer.exe
             asset_name: renamer-windows.exe
@@ -65,6 +68,7 @@ jobs:
         with:
           files: |
             */renamer-linux
+            */renamer-linux-arm
             */renamer-windows.exe
             */renamer-macos
         env:
